@@ -1,0 +1,9 @@
+.ipynb_checkpoints/
+.vscode/
+checkpoints/
+data/
+logs/
+progress/
+Untitled.ipynb
+*/__pycache__/*
+model.png
