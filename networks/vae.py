@@ -324,7 +324,14 @@ def generate_and_save_images(model, epoch, test_sample):
     plt.show()
 
 
-def train_model(model, train_dataset, test_dataset, epochs, optimizer, test_sample, save_model=True, check_point=None):
+def train_model(model,
+                train_dataset,
+                test_dataset,
+                epochs, optimizer,
+                test_sample,
+                save_model=True,
+                check_point=None,
+                start_epoch=0):
 
     train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
     test_loss = tf.keras.metrics.Mean('test_loss', dtype=tf.float32)
@@ -337,7 +344,7 @@ def train_model(model, train_dataset, test_dataset, epochs, optimizer, test_samp
 
     losses = []
     generate_and_save_images(model, 0, test_sample)
-    for epoch in range(1, epochs + 1):
+    for epoch in range(1 + start_epoch, epochs + 1 + start_epoch):
         start_time = time.time()
         with tqdm(train_dataset) as tepoch:
             for batch_index in range(len(train_dataset)):
