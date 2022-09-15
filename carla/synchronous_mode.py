@@ -10,6 +10,7 @@ import glob
 import os
 import sys
 from turtle import width
+from PIL import Image
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -120,6 +121,66 @@ def should_quit():
     return False
 
 
+classes = {
+    'unlabled':np.uint8([[[0, 0, 0]]]), 
+    'Building':np.uint8([[[70, 70, 70]]]), 
+    'Fence':np.uint8([[[100, 40, 40]]]), 
+    'Other':np.uint8([[[55, 90, 80]]]), 
+    'Pedestrian':np.uint8([[[220, 20, 60]]]), 
+    'Pole':np.uint8([[[153, 153, 153]]]), 	
+    'RoadLine':np.uint8([[[157, 234, 50]]]), 
+    'Road':np.uint8([[[128, 64, 128]]]), 
+    'SideWalk':np.uint8([[[244, 35, 232]]]), 
+    'Vegetation':np.uint8([[[107, 142, 35]]]), 
+    'Vehicles':np.uint8([[[0, 0, 142]]]), 
+    'Wall':np.uint8([[[102, 102, 156]]]), 
+    'TrafficSign':np.uint8([[[220, 220, 0]]]), 
+    'Sky':np.uint8([[[70, 130, 180]]]), 
+    'Ground':np.uint8([[[81, 0, 81]]]), 
+    'Bridge':np.uint8([[[150, 100, 100]]]), 
+    'RailTrack':np.uint8([[[230, 150, 140]]]), 
+    'GuardRail':np.uint8([[[180, 165, 180]]]), 
+    'TrafficLight':np.uint8([[[250, 170, 30]]]), 
+    'Static':np.uint8([[[110, 190, 160]]]), 
+    'Dynamic':np.uint8([[[170, 120, 50]]]), 
+    'Water':np.uint8([[[45, 60, 150]]]), 
+    'Terrain':np.uint8([[[145, 170, 100]]]), 
+}
+
+anchor_classes = [
+'Fence',
+'Pole',
+'Vegetation',
+'TrafficSign',
+'GuardRail',
+'TrafficLight',
+'Static',
+'Terrain',
+'Sky',
+'Dynamic',
+'Building',
+'Wall',
+'Water']
+
+target_class = 'Other'
+
+def change_class(img, anchor_class, target_class):
+    mask = np.abs(img - anchor_class) <= 1
+    mask = np.tile(np.prod(mask , axis=2)[:,:,None] , (1,1,3) )
+    target_image = mask * target_class + (1 - mask) * img
+    return target_image
+
+def save_image(img, path):
+    target_image = img
+    target_image = target_image[:, :, :3]
+    target_image = target_image[:, :, ::-1]
+
+    for anchor_class in anchor_classes:
+        target_image = change_class(target_image, classes[anchor_class], classes[target_class])
+    target_image = Image.fromarray(target_image.astype(np.uint8))
+    target_image.save(path)
+
+
 def main():
     actor_list = []
     pygame.init()
@@ -153,7 +214,7 @@ def main():
             random.choice(blueprint_library.filter('vehicle.tesla.model3')),
             start_pose)
         actor_list.append(vehicle)
-        vehicle.set_simulate_physics(True)
+        vehicle.set_simulate_physics(False)
 
 
         # RGB camera 
@@ -215,9 +276,10 @@ def main():
                 image_semseg.convert(carla.ColorConverter.CityScapesPalette)
                 image_depth.convert(carla.ColorConverter.LogarithmicDepth)
                 
-                image_semseg.save_to_disk("../data/msn/semantic/%06d.png" % current_frame)
-                image_depth.save_to_disk("../data/msn/depth/%06d.png" % current_frame)
-                image_rgb.save_to_disk("../data/msn/rgb/%06d.png" % current_frame)
+                save_image(np.frombuffer(image_semseg.raw_data, dtype=np.dtype("uint8")).reshape(256,256,4)
+                           ,"../data/semantic256x256_test/data/%06d.png" % current_frame)
+                # image_depth.save_to_disk("../data/msn/depth/%06d.png" % current_frame)
+                # image_rgb.save_to_disk("../data/msn/rgb/%06d.png" % current_frame)
                 
                 
                 assert image_semseg.frame == image_rgb.frame == image_depth.frame
