@@ -4,7 +4,7 @@ checkpoints/
 data/
 logs/
 progress/
-Untitled.ipynb
+Untitled*.ipynb
 */__pycache__/*
 model.png
 papers
