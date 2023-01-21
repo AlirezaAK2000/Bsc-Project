@@ -11,7 +11,7 @@ from agents.common.networks import DeepQNetwork
 class Agent():
     
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size
-                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4, use_pre=True) -> None:
+                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4, use_per=True) -> None:
         
         self.gamma = gamma
         self.epsilon = epsilon
@@ -36,12 +36,12 @@ class Agent():
         self.target_eval.eval()
         
         self.optimizer = optim.Adam(self.Q_eval.parameters(), lr=lr)
-        self.use_pre = use_pre    
-        self.replay_buffer = PrioritizedReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1) if self.use_pre else \
+        self.use_per = use_per    
+        self.replay_buffer = PrioritizedReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1) if self.use_per else \
             ReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1) 
         
         self.store_transition = self.replay_buffer.store_transition
-        print(f'usinf PER {self.use_pre}')
+        print(f'usinf PER {self.use_per}')
         
         
     def save_models(self):
@@ -74,7 +74,7 @@ class Agent():
         
         self.optimizer.zero_grad()
         weights = None
-        if self.use_pre:
+        if self.use_per:
             b, weights, tree_idxs = self.replay_buffer.sample_buffer(self.batch_size)
             states, actions, rewards, states_, dones = b
             weights = T.tensor(weights, dtype=T.float)
@@ -118,7 +118,7 @@ class Agent():
         if steps % 5 == 0:
             self.target_eval.load_state_dict(self.Q_eval.state_dict())
         
-        if self.use_pre:
+        if self.use_per:
             
             self.replay_buffer.update_priorities(tree_idxs, td_error)
         
