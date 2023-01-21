@@ -37,6 +37,9 @@ if __name__ == "__main__":
     parser.add_argument("--n_games", type=int, default=500,
         help="Number of episodes")
     
+    parser.add_argument("--log_dir", type=str, default='runs/',
+        help="Base dir of tensorboards logs")
+    
     args = parser.parse_args()
     
     env_name = 'MountainCar-v0'
@@ -49,7 +52,7 @@ if __name__ == "__main__":
     )
     run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
 
-    writer = SummaryWriter(f"runs/{run_name}")
+    writer = SummaryWriter(f"{args.log_dir}/{run_name}")
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),

@@ -38,7 +38,7 @@ if __name__ == '__main__':
     
     run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
 
-    writer = SummaryWriter(f"runs/{run_name}")
+    writer = SummaryWriter(f"{args.log_dir}/{run_name}")
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
