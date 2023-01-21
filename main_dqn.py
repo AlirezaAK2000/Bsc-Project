@@ -6,6 +6,8 @@ import argparse
 import os
 from torch.utils.tensorboard import SummaryWriter
 import time
+from distutils.util import strtobool
+
 
 if __name__ == "__main__":
     
@@ -40,6 +42,9 @@ if __name__ == "__main__":
     parser.add_argument("--log_dir", type=str, default='runs/',
         help="Base dir of tensorboards logs")
     
+    parser.add_argument("--use_per", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="Use a perioritized replay buffer")
+    
     args = parser.parse_args()
     
     env_name = 'MountainCar-v0'
@@ -48,7 +53,7 @@ if __name__ == "__main__":
     agent = Agent(
         gamma= args.gamma , epsilon=args.epsilon, batch_size=args.batch_size, n_action=env.action_space.n,
         eps_end= args.eps_end, input_dims=env.observation_space.shape, lr=args.learning_rate, eps_dec= args.eps_dec,
-        max_mem_size=args.max_mem_size
+        max_mem_size=args.max_mem_size, use_pre=args.use_pre
     )
     run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from agents.common.buffer import ReplayBuffer
+from agents.common.buffer import ReplayBuffer, PrioritizedReplayBuffer
 from agents.common.networks import DeepQNetwork
 
     
@@ -11,7 +11,7 @@ from agents.common.networks import DeepQNetwork
 class Agent():
     
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size
-                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4) -> None:
+                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4, use_pre=True) -> None:
         
         self.gamma = gamma
         self.epsilon = epsilon
@@ -36,11 +36,12 @@ class Agent():
         self.target_eval.eval()
         
         self.optimizer = optim.Adam(self.Q_eval.parameters(), lr=lr)
-        self.loss = nn.MSELoss()
-        
-        self.replay_buffer = ReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1)
+        self.use_pre = use_pre    
+        self.replay_buffer = PrioritizedReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1) if self.use_pre else \
+            ReplayBuffer(max_size=self.mem_size, input_shape=input_dims, n_actions=1) 
         
         self.store_transition = self.replay_buffer.store_transition
+        print(f'usinf PER {self.use_pre}')
         
         
     def save_models(self):
@@ -68,13 +69,19 @@ class Agent():
         return action
     
     def learn(self, steps):
-        if self.replay_buffer.mem_cntr < self.batch_size:
+        if self.replay_buffer.count < self.batch_size:
             return
         
         self.optimizer.zero_grad()
+        weights = None
+        if self.use_pre:
+            b, weights, tree_idxs = self.replay_buffer.sample_buffer(self.batch_size)
+            states, actions, rewards, states_, dones = b
+            weights = T.tensor(weights, dtype=T.float)
+        else:
+            states, actions, rewards, states_, dones = self.replay_buffer.sample_buffer(self.batch_size)
+            
         
-        
-        states, actions, rewards, states_, dones = self.replay_buffer.sample_buffer(self.batch_size)
         
         batch_index = np.arange(self.batch_size, dtype=np.int32)
         
@@ -91,8 +98,16 @@ class Agent():
         
         q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
         
-        loss = self.loss(q_target, q_eval).to(self.device)
+        td_error = T.abs(q_target - q_eval).detach().numpy()
+        
+        if weights is None:
+            weights = T.ones_like(q_eval)
+        
+        weights.to(self.device)
+        loss = T.mean((q_eval - q_target)**2 * weights)
+        
         loss.backward()
+        
         for param in self.Q_eval.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
@@ -102,7 +117,10 @@ class Agent():
         
         if steps % 5 == 0:
             self.target_eval.load_state_dict(self.Q_eval.state_dict())
+        
+        if self.use_pre:
             
+            self.replay_buffer.update_priorities(tree_idxs, td_error)
         
         
         
