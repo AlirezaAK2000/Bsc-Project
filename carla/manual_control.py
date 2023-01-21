@@ -54,10 +54,12 @@ Use ARROWS or WASD keys for control.
 from __future__ import print_function
 
 
+
 # ==============================================================================
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 
+import json
 
 import glob
 import os
@@ -89,6 +91,7 @@ import math
 import random
 import re
 import weakref
+import matplotlib.pyplot as plt
 
 try:
     import pygame
@@ -142,6 +145,7 @@ except ImportError:
 # -- Global functions ----------------------------------------------------------
 # ==============================================================================
 
+LOCATIONS = []
 
 def find_weather_presets():
     rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
@@ -252,7 +256,7 @@ class World(object):
         self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
-        self.collector = Collector(self.player)
+        # self.collector = Collector(self.player)
         actor_type = get_actor_display_name(self.player)
         self.hud.notification(actor_type)
 
@@ -311,8 +315,9 @@ class World(object):
             self.lane_invasion_sensor.sensor,
             self.gnss_sensor.sensor,
             self.imu_sensor.sensor,
-            self.collector.cam_bp,
-            self.collector.sem_bp]
+            # self.collector.cam_bp,
+            # self.collector.sem_bp
+            ]
         for sensor in sensors:
             if sensor is not None:
                 sensor.stop()
@@ -1125,6 +1130,10 @@ def game_loop(args):
 
         clock = pygame.time.Clock()
         while True:
+            if world.player != None:
+                t = world.player.get_transform().location
+                print(t)
+                LOCATIONS.append({'x':t.x, 'y':t.y})
             clock.tick_busy_loop(60)
             if controller.parse_events(client, world, clock):
                 return
@@ -1141,6 +1150,12 @@ def game_loop(args):
             world.destroy()
 
         pygame.quit()
+        
+        locs = LOCATIONS[100::10]
+        with open("path.json", 'w') as f:
+            json.dump(locs, f)
+        plt.plot([t['x'] for t in locs], [t['y'] for t in locs])
+        plt.show()
 
 
 # ==============================================================================
@@ -1207,6 +1222,7 @@ def main():
         game_loop(args)
 
     except KeyboardInterrupt:
+        
         print('\nCancelled by user. Bye!')
 
 

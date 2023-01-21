@@ -8,3 +8,5 @@ Untitled*.ipynb
 */__pycache__/*
 model.png
 papers
+runs/
+tmp/
