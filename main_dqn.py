@@ -47,13 +47,13 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    env_name = 'MountainCar-v0'
+    env_name = 'LunarLander-v2'
     
     env = gym.make(env_name)
     agent = Agent(
         gamma= args.gamma , epsilon=args.epsilon, batch_size=args.batch_size, n_action=env.action_space.n,
         eps_end= args.eps_end, input_dims=env.observation_space.shape, lr=args.learning_rate, eps_dec= args.eps_dec,
-        max_mem_size=args.max_mem_size, use_pre=args.use_per
+        max_mem_size=args.max_mem_size, use_per=args.use_per
     )
     run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
 
