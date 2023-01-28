@@ -7,7 +7,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import time
 from distutils.util import strtobool
-
+from tqdm import tqdm
 
 if __name__ == "__main__":
     
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    env_name = 'LunarLander-v2'
+    env_name = 'MountainCar-v0'
     
     env = gym.make(env_name)
     agent = Agent(
@@ -67,29 +67,33 @@ if __name__ == "__main__":
     scores, eps_history = [], []
     n_games = args.n_games
     
-    
-    for i in range(n_games):
-        score = 0
-        done = False
-        observation = env.reset()
-        steps = 0
-        while not done:
-            action = agent.choose_action(observation)
-            observation_, reward, done, info = env.step(action)
-            score += reward
-            agent.store_transition(observation, action, reward, observation_, done)            
+    with tqdm(list(range(n_games))) as tepoch:
+        for i in range(n_games):
+            tepoch.set_description(f"Episode: {i}")
+            score = 0
+            done = False
+            observation = env.reset()
+            steps = 0
+            while not done:
+                action = agent.choose_action(observation)
+                observation_, reward, done, info = env.step(action)
+                score += reward
+                agent.store_transition(observation, action, reward, observation_, done)            
+                
+                agent.learn(steps)
+                observation = observation_
+                steps += 1
+                
+            scores.append(score)
+            eps_history.append(agent.epsilon)
+            avg_score = np.mean(scores[-100:])
+            tepoch.set_postfix(
+                score=score, AVG=avg_score)
+            tepoch.update(1)
             
-            agent.learn(steps)
-            observation = observation_
-            steps += 1
-            
-        scores.append(score)
-        eps_history.append(agent.epsilon)
-        avg_score = np.mean(scores[-100:])
-        
-        writer.add_scalar("charts/Episodic Return", score, i)
-        writer.add_scalar("charts/Epsilon", agent.epsilon, i)
-        writer.add_scalar("charts/Average Score Over 100 Previous Episodes", avg_score, i)
+            writer.add_scalar("charts/Episodic Return", score, i)
+            writer.add_scalar("charts/Epsilon", agent.epsilon, i)
+            writer.add_scalar("charts/Average Score Over 100 Previous Episodes", avg_score, i)
 
         
         

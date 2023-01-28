@@ -10,3 +10,5 @@ model.png
 papers
 runs/
 tmp/
+PPO_preTrained
+*.png

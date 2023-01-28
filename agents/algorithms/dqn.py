@@ -98,12 +98,12 @@ class Agent():
         
         q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
         
-        td_error = T.abs(q_target - q_eval).detach().numpy()
+        td_error = T.abs(q_target - q_eval).detach().cpu().numpy()
         
         if weights is None:
             weights = T.ones_like(q_eval)
         
-        weights.to(self.device)
+        weights = weights.to(self.device)
         loss = T.mean((q_eval - q_target)**2 * weights)
         
         loss.backward()

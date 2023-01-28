@@ -1,93 +1,261 @@
-import gym
-import numpy as np
-from agents.algorithms.ppo import Agent
-from agents.common.utils import plot_learning_curve
-import argparse
 import os
-from torch.utils.tensorboard import SummaryWriter
+import glob
 import time
+from datetime import datetime
+import torch
+import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+import gym
+import time
+from agents.algorithms.ppo import PPO
+import argparse
 
-if __name__ == '__main__':
+
+################################### Training ###################################
+def train():
+    print("============================================================================================")
+    
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp_name", type=str, default=os.path.basename(__file__).rstrip(".py"),
         help="the name of this experiment")
     
-    parser.add_argument("--learning_rate", type=float, default=3e-4,
-        help="the learning rate of the optimizer")
+    parser.add_argument("--lr_actor", type=float, default=0.0003,
+        help="the learning rate of the actor optimizer")
     
-    parser.add_argument("--batch_size", type=int, default=25,
-        help="Batch size for each update")
+    parser.add_argument("--lr_critic", type=float, default=0.001,
+        help="the learning rate of the critic optimizer")
     
-    parser.add_argument("--n_games", type=int, default=500,
-        help="Number of episodes")
-
-    parser.add_argument("--n_epochs", type=int, default=5,
+    parser.add_argument("--k_epochs", type=int, default=80,
         help="Number of Epochs for Updating the networks")
+    
+    parser.add_argument("--max_ep_len", type=int, default=999,
+        help="Maximum time steps of the episodes")
+    
+    parser.add_argument("--max_training_timesteps", type=int, default=5e5,
+        help="number of time steps.")
     
     parser.add_argument("--log_dir", type=str, default='runs/',
         help="Base dir of tensorboards logs")
-
     
+    parser.add_argument("--action_std", type=float, default=0.6,
+        help="Maximum Std for continuous setting")
+    parser.add_argument("--action_std_decay_rate", type=float, default=0.05,
+        help="Maximum Std for continuous setting")
     
     args = parser.parse_args()
-    
-    env_name = 'MountainCar-v0'
-    
-    env = gym.make(env_name)
-    
-    run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
 
+
+    ####### initialize environment hyperparameters ######
+    env_name = "MountainCarContinuous-v0"
+
+    has_continuous_action_space = True  # continuous action space; else discrete
+
+    max_ep_len = args.max_ep_len                   # max timesteps in one episode
+    max_training_timesteps = int(args.max_training_timesteps)   # break training loop if timeteps > max_training_timesteps
+
+    print_freq = max_ep_len * 10        # print avg reward in the interval (in num timesteps)
+    save_model_freq = int(1e4)          # save model frequency (in num timesteps)
+
+    action_std = args.action_std                    # starting std for action distribution (Multivariate Normal)
+    action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
+    min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
+    action_std_decay_freq = int(2.5e4)  # action_std decay frequency (in num timesteps)
+    #####################################################
+
+    ## Note : print/log frequencies should be > than max_ep_len
+
+    ################ PPO hyperparameters ################
+    update_timestep = max_ep_len * 4      # update policy every n timesteps
+    K_epochs = args.k_epochs               # update policy for K epochs in one PPO update
+
+    eps_clip = 0.2          # clip parameter for PPO
+    gamma = 0.99            # discount factor
+
+    lr_actor = args.lr_actor       # learning rate for actor network
+    lr_critic = args.lr_critic       # learning rate for critic network
+
+    random_seed = 0         # set random seed if required (0 = no random seed)
+    #####################################################
+
+    print("training environment name : " + env_name)
+
+    env = gym.make(env_name)
+
+    # state space dimension
+    state_dim = env.observation_space.shape[0]
+
+    # action space dimension
+    if has_continuous_action_space:
+        action_dim = env.action_space.shape[0]
+    else:
+        action_dim = env.action_space.n
+
+    ###################### logging ######################
+    if not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+    run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
+    
     writer = SummaryWriter(f"{args.log_dir}/{run_name}")
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
-    
-    batch_size = args.batch_size
-    N = batch_size * 4
-    n_epochs = args.n_epochs
-    alpha = args.learning_rate
-    agent = Agent(n_actions=env.action_space.n, batch_size=batch_size, 
-                    alpha=alpha, n_epochs=n_epochs, 
-                    input_dims=env.observation_space.shape, mem_size = N)
-    n_games = args.n_games
 
-    figure_file = f'{env_name}-ppo.png'
+    ################### checkpointing ###################
+    run_num_pretrained = 0      #### change this to prevent overwriting weights in same env_name folder
 
-    best_score = env.reward_range[0]
-    score_history = []
+    directory = "PPO_preTrained"
+    if not os.path.exists(directory):
+          os.makedirs(directory)
 
-    learn_iters = 0
-    avg_score = 0
-    n_steps = 0
+    directory = directory + '/' + env_name + '/'
+    if not os.path.exists(directory):
+          os.makedirs(directory)
 
-    for i in range(n_games):
-        observation = env.reset()
-        done = False
-        score = 0
-        while not done:
-            action, prob, val = agent.choose_action(observation)
-            observation_, reward, done, info = env.step(action)
-            n_steps += 1
-            score += reward
-            agent.remember(observation, action, prob, val, reward, done)
-            if n_steps % N == 0:
-                agent.learn()
-                learn_iters += 1
-            observation = observation_
-        score_history.append(score)
-        avg_score = np.mean(score_history[-100:])
 
-        if avg_score > best_score:
-            best_score = avg_score
-            agent.save_models()
+    checkpoint_path = directory + "PPO_{}_{}_{}.pth".format(env_name, random_seed, run_num_pretrained)
+    print("save checkpoint path : " + checkpoint_path)
+    #####################################################
+
+
+    ############# print all hyperparameters #############
+    print("--------------------------------------------------------------------------------------------")
+    print("max training timesteps : ", max_training_timesteps)
+    print("max timesteps per episode : ", max_ep_len)
+    print("model saving frequency : " + str(save_model_freq) + " timesteps")
+    print("printing average reward over episodes in last : " + str(print_freq) + " timesteps")
+    print("--------------------------------------------------------------------------------------------")
+    print("state space dimension : ", state_dim)
+    print("action space dimension : ", action_dim)
+    print("--------------------------------------------------------------------------------------------")
+    if has_continuous_action_space:
+        print("Initializing a continuous action space policy")
+        print("--------------------------------------------------------------------------------------------")
+        print("starting std of action distribution : ", action_std)
+        print("decay rate of std of action distribution : ", action_std_decay_rate)
+        print("minimum std of action distribution : ", min_action_std)
+        print("decay frequency of std of action distribution : " + str(action_std_decay_freq) + " timesteps")
+    else:
+        print("Initializing a discrete action space policy")
+    print("--------------------------------------------------------------------------------------------")
+    print("PPO update frequency : " + str(update_timestep) + " timesteps")
+    print("PPO K epochs : ", K_epochs)
+    print("PPO epsilon clip : ", eps_clip)
+    print("discount factor (gamma) : ", gamma)
+    print("--------------------------------------------------------------------------------------------")
+    print("optimizer learning rate actor : ", lr_actor)
+    print("optimizer learning rate critic : ", lr_critic)
+    if random_seed:
+        print("--------------------------------------------------------------------------------------------")
+        print("setting random seed to ", random_seed)
+        torch.manual_seed(random_seed)
+        env.seed(random_seed)
+        np.random.seed(random_seed)
+    #####################################################
+
+    print("============================================================================================")
+
+    ################# training procedure ################
+
+    # initialize a PPO agent
+    ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
+
+    # track total training time
+    start_time = datetime.now().replace(microsecond=0)
+    print("Started training at (GMT) : ", start_time)
+
+    print("============================================================================================")
+
+    # printing and logging variables
+    print_running_reward = 0
+    print_running_episodes = 0
+
+    # log_running_reward = 0
+    # log_running_episodes = 0
+
+    time_step = 0
+    i_episode = 0
+
+    # training loop
+    while time_step <= max_training_timesteps:
+
+        state = env.reset()
+        current_ep_reward = 0
+
+        for t in range(1, max_ep_len+1):
+
+            # select action with policy
+            action = ppo_agent.select_action(state)
+            state, reward, done, _ = env.step(action)
+
+            # saving reward and is_terminals
+            ppo_agent.buffer.rewards.append(reward)
+            ppo_agent.buffer.is_terminals.append(done)
+
+            time_step +=1
+            current_ep_reward += reward
+
+            # update PPO agent
+            if time_step % update_timestep == 0:
+                ppo_agent.update()
+
+            # if continuous action space; then decay action std of ouput action distribution
+            if has_continuous_action_space and time_step % action_std_decay_freq == 0:
+                ppo_agent.decay_action_std(action_std_decay_rate, min_action_std)
+
+
+            # printing average reward
+            if time_step % print_freq == 0:
+
+                # print average reward till last episode
+                print_avg_reward = print_running_reward / print_running_episodes
+                print_avg_reward = round(print_avg_reward, 2)
+
+                print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step, print_avg_reward))
+
+                print_running_reward = 0
+                print_running_episodes = 0
+
+            # save model weights
+            if time_step % save_model_freq == 0:
+                print("--------------------------------------------------------------------------------------------")
+                print("saving model at : " + checkpoint_path)
+                ppo_agent.save(checkpoint_path)
+                print("model saved")
+                print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
+                print("--------------------------------------------------------------------------------------------")
+
+            # break; if the episode is over
+            if done:
+                break
+
+        print_running_reward += current_ep_reward
+        print_running_episodes += 1
+
+        i_episode += 1
         
-        writer.add_scalar("charts/Episodic Return", score, i)
-        writer.add_scalar("charts/Average Score Over 100 Previous Episodes", avg_score, i)
+        writer.add_scalar("charts/Episodic Return", current_ep_reward, time_step)
+
+    log_f.close()
+    env.close()
+
+    # print total training time
+    print("============================================================================================")
+    end_time = datetime.now().replace(microsecond=0)
+    print("Started training at (GMT) : ", start_time)
+    print("Finished training at (GMT) : ", end_time)
+    print("Total training time  : ", end_time - start_time)
+    print("============================================================================================")
 
 
-        print('episode', i, 'score %.1f' % score, 'avg score %.1f' % avg_score,
-                'time_steps', n_steps, 'learning_steps', learn_iters)
-    x = [i+1 for i in range(len(score_history))]
-    plot_learning_curve(x, score_history, figure_file)
+if __name__ == '__main__':
+
+    train()
+    
+    
+    
+    
+    
+    
+    
