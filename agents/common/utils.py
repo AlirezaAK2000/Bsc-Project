@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
+import math
 
 def plot_learning_curve(x, scores, figure_file):
     running_avg = np.zeros(len(scores))
@@ -104,3 +106,80 @@ class SumTree:
 
     def __repr__(self):
         return f"SumTree(nodes={self.nodes.__repr__()}, data={self.data.__repr__()})"
+
+
+
+
+############################################################################################################
+######################################### State Prepration For Car Racing###################################
+############################################################################################################
+
+def prepare_state(state, screen_height, screen_width):
+    width_margin = (state.shape[1] - screen_width) // 2
+    height_margin = (state.shape[1] - screen_height) // 2
+    state = state[height_margin:-height_margin,width_margin:-width_margin,:]
+    state = np.dot(state[...,:3], [0.2989, 0.5870, 0.1140])[:,:,None]
+    
+    state = torch.tensor(state.transpose((2, 0, 1)), device= 'cpu')
+    return torch.unsqueeze(state, 0)
+
+
+
+
+def reset(env, action, screen_height, screen_width, plotter, frame_num):
+    
+    state = prepare_state(env.reset(), screen_height, screen_width)
+    plotter.set_data(state.numpy().squeeze(axis=0).transpose((1, 2, 0)))
+    plt.pause(0.0000001)
+    frames = [state]
+    for _ in range(1, frame_num):
+        state, _, _, _ = env.step(action)
+        state = prepare_state(state, screen_height, screen_width)
+        plotter.set_data(state.numpy().squeeze(axis=0).transpose((1, 2, 0)))
+        frames.append(state/255.0)
+        plt.pause(0.0000001)
+        
+    frames = torch.cat(frames, dim=1)
+    
+    return frames
+
+
+            
+        
+        
+def step(env, action, screen_height, screen_width, plotter, frame_num, reward_memory):
+    rewards = 0
+    frames = []
+    done = False
+    for _ in range(frame_num):
+        if not done:
+            state, reward, done, info = env.step(action)
+            rewards += np.clip(reward, a_max=1.0, a_min=-math.inf)
+            
+            done = True if reward_memory(reward) <= -0.1 else False
+            state = prepare_state(state, screen_height, screen_width)
+            plotter.set_data(state.numpy().squeeze(axis=0).transpose((1, 2, 0)))
+            frames.append(state/255.0)
+            plt.pause(0.0000001)
+        else:
+            state = prepare_state(np.zeros((96,96,3)), screen_height, screen_width)
+            frames.append(state)
+    
+    
+    frames = torch.cat(frames, dim=1)
+    
+    return frames, done, rewards
+
+def reward_memory():
+    # record reward for last 100 steps
+    count = 0
+    length = 80
+    history = np.zeros(length)
+
+    def memory(reward):
+        nonlocal count
+        history[count] = reward
+        count = (count + 1) % length
+        return np.mean(history)
+    
+    return memory

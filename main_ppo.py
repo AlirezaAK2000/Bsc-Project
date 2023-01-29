@@ -9,7 +9,8 @@ import gym
 import time
 from agents.algorithms.ppo import PPO
 import argparse
-
+import matplotlib.pyplot as plt
+from agents.common.utils import reset, step, reward_memory
 
 ################################### Training ###################################
 def train():
@@ -26,10 +27,10 @@ def train():
     parser.add_argument("--lr_critic", type=float, default=0.001,
         help="the learning rate of the critic optimizer")
     
-    parser.add_argument("--k_epochs", type=int, default=80,
+    parser.add_argument("--k_epochs", type=int, default=15,
         help="Number of Epochs for Updating the networks")
     
-    parser.add_argument("--max_ep_len", type=int, default=999,
+    parser.add_argument("--max_ep_len", type=int, default=200,
         help="Maximum time steps of the episodes")
     
     parser.add_argument("--max_training_timesteps", type=int, default=5e5,
@@ -38,35 +39,43 @@ def train():
     parser.add_argument("--log_dir", type=str, default='runs/',
         help="Base dir of tensorboards logs")
     
-    parser.add_argument("--action_std", type=float, default=0.6,
+    parser.add_argument("--action_std", type=float, default=0.8,
         help="Maximum Std for continuous setting")
+    
     parser.add_argument("--action_std_decay_rate", type=float, default=0.05,
-        help="Maximum Std for continuous setting")
+        help="Std decay rate for continuous setting")
+    
+    parser.add_argument("--min_action_std", type=float, default=0.1,
+        help="Min Std for continuous setting")
+    
+    parser.add_argument("--action_std_decay_freq", type=int, default=2.5e3,
+        help="Maximum time steps of the episodes")
     
     args = parser.parse_args()
 
 
     ####### initialize environment hyperparameters ######
-    env_name = "MountainCarContinuous-v0"
+    use_conv = True
+    env_name = "CarRacing-v2"
 
     has_continuous_action_space = True  # continuous action space; else discrete
 
     max_ep_len = args.max_ep_len                   # max timesteps in one episode
     max_training_timesteps = int(args.max_training_timesteps)   # break training loop if timeteps > max_training_timesteps
 
-    print_freq = max_ep_len * 10        # print avg reward in the interval (in num timesteps)
+    print_freq = max_ep_len        # print avg reward in the interval (in num timesteps)
     save_model_freq = int(1e4)          # save model frequency (in num timesteps)
 
     action_std = args.action_std                    # starting std for action distribution (Multivariate Normal)
-    action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
-    min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
-    action_std_decay_freq = int(2.5e4)  # action_std decay frequency (in num timesteps)
+    action_std_decay_rate = args.action_std_decay_rate         # linearly decay action_std (action_std = action_std - action_std_decay_rate)
+    min_action_std = args.min_action_std                # minimum action_std (stop decay after action_std <= min_action_std)
+    action_std_decay_freq = args.action_std_decay_freq  # action_std decay frequency (in num timesteps)
     #####################################################
 
     ## Note : print/log frequencies should be > than max_ep_len
 
     ################ PPO hyperparameters ################
-    update_timestep = max_ep_len * 4      # update policy every n timesteps
+    update_timestep = max_ep_len // 4      # update policy every n timesteps
     K_epochs = args.k_epochs               # update policy for K epochs in one PPO update
 
     eps_clip = 0.2          # clip parameter for PPO
@@ -76,6 +85,11 @@ def train():
     lr_critic = args.lr_critic       # learning rate for critic network
 
     random_seed = 0         # set random seed if required (0 = no random seed)
+    
+    # for image data 
+    screen_height = 72
+    screen_width = 84
+    frame_num = 4
     #####################################################
 
     print("training environment name : " + env_name)
@@ -115,48 +129,6 @@ def train():
 
 
     checkpoint_path = directory + "PPO_{}_{}_{}.pth".format(env_name, random_seed, run_num_pretrained)
-    print("save checkpoint path : " + checkpoint_path)
-    #####################################################
-
-
-    ############# print all hyperparameters #############
-    print("--------------------------------------------------------------------------------------------")
-    print("max training timesteps : ", max_training_timesteps)
-    print("max timesteps per episode : ", max_ep_len)
-    print("model saving frequency : " + str(save_model_freq) + " timesteps")
-    print("printing average reward over episodes in last : " + str(print_freq) + " timesteps")
-    print("--------------------------------------------------------------------------------------------")
-    print("state space dimension : ", state_dim)
-    print("action space dimension : ", action_dim)
-    print("--------------------------------------------------------------------------------------------")
-    if has_continuous_action_space:
-        print("Initializing a continuous action space policy")
-        print("--------------------------------------------------------------------------------------------")
-        print("starting std of action distribution : ", action_std)
-        print("decay rate of std of action distribution : ", action_std_decay_rate)
-        print("minimum std of action distribution : ", min_action_std)
-        print("decay frequency of std of action distribution : " + str(action_std_decay_freq) + " timesteps")
-    else:
-        print("Initializing a discrete action space policy")
-    print("--------------------------------------------------------------------------------------------")
-    print("PPO update frequency : " + str(update_timestep) + " timesteps")
-    print("PPO K epochs : ", K_epochs)
-    print("PPO epsilon clip : ", eps_clip)
-    print("discount factor (gamma) : ", gamma)
-    print("--------------------------------------------------------------------------------------------")
-    print("optimizer learning rate actor : ", lr_actor)
-    print("optimizer learning rate critic : ", lr_critic)
-    if random_seed:
-        print("--------------------------------------------------------------------------------------------")
-        print("setting random seed to ", random_seed)
-        torch.manual_seed(random_seed)
-        env.seed(random_seed)
-        np.random.seed(random_seed)
-    #####################################################
-
-    print("============================================================================================")
-
-    ################# training procedure ################
 
     # initialize a PPO agent
     ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
@@ -169,7 +141,7 @@ def train():
 
     # printing and logging variables
     print_running_reward = 0
-    print_running_episodes = 0
+    print_running_episodes = 1
 
     # log_running_reward = 0
     # log_running_episodes = 0
@@ -177,17 +149,22 @@ def train():
     time_step = 0
     i_episode = 0
 
+    ax = plt.subplot(111)
+    prog_shower = ax.imshow(np.zeros((screen_height, screen_width, 1)) , cmap='gray', vmin=0, vmax=255)
+    plt.ion()
+
     # training loop
     while time_step <= max_training_timesteps:
 
-        state = env.reset()
+        state = reset(env, [0,1,0.8], screen_height, screen_width, prog_shower, frame_num)
         current_ep_reward = 0
-
+        rew_mem = reward_memory()
         for t in range(1, max_ep_len+1):
 
             # select action with policy
             action = ppo_agent.select_action(state)
-            state, reward, done, _ = env.step(action)
+            state, done,reward = step(env, action, screen_height, screen_width,
+                                       prog_shower, frame_num, rew_mem)
 
             # saving reward and is_terminals
             ppo_agent.buffer.rewards.append(reward)
@@ -199,6 +176,7 @@ def train():
             # update PPO agent
             if time_step % update_timestep == 0:
                 ppo_agent.update()
+                print("policy updated")
 
             # if continuous action space; then decay action std of ouput action distribution
             if has_continuous_action_space and time_step % action_std_decay_freq == 0:
