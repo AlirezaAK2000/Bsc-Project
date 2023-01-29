@@ -155,8 +155,8 @@ def step(env, action, screen_height, screen_width, plotter, frame_num, reward_me
         if not done:
             state, reward, done, info = env.step(action)
             rewards += np.clip(reward, a_max=1.0, a_min=-math.inf)
-            
             done = True if reward_memory(reward) <= -0.1 else False
+                
             state = prepare_state(state, screen_height, screen_width)
             plotter.set_data(state.numpy().squeeze(axis=0).transpose((1, 2, 0)))
             frames.append(state/255.0)

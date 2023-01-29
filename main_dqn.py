@@ -8,6 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 import time
 from distutils.util import strtobool
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from agents.common.utils import reset, step, reward_memory
 
 if __name__ == "__main__":
     
@@ -24,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=256,
         help="Batch size for each update")
     
-    parser.add_argument("--max_mem_size", type=int, default=1_000_000,
+    parser.add_argument("--max_mem_size", type=int, default=10000,
         help="size of the replay buffer")
     
     parser.add_argument("--eps_end", type=float, default=0.01,
@@ -33,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--gamma", type=float, default=0.99,
         help="Discount factor")
     
-    parser.add_argument("--epsilon", type=float, default=1.0,
+    parser.add_argument("--epsilon", type=float, default=0.8,
         help="Epsilon for exploration")
     
     parser.add_argument("--n_games", type=int, default=500,
@@ -47,12 +49,16 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    env_name = 'MountainCar-v0'
+    screen_height = 72
+    screen_width = 84
+    frame_num = 4
     
-    env = gym.make(env_name)
+    env_name = 'CarRacing-v2'
+    
+    env = gym.make(env_name, continuous=False)
     agent = Agent(
         gamma= args.gamma , epsilon=args.epsilon, batch_size=args.batch_size, n_action=env.action_space.n,
-        eps_end= args.eps_end, input_dims=env.observation_space.shape, lr=args.learning_rate, eps_dec= args.eps_dec,
+        eps_end= args.eps_end, input_dims=(frame_num, screen_height, screen_width), lr=args.learning_rate, eps_dec= args.eps_dec,
         max_mem_size=args.max_mem_size, use_per=args.use_per
     )
     run_name = f"{env_name}__{args.exp_name}_{int(time.time())}"
@@ -63,6 +69,9 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
+    ax = plt.subplot(111)
+    prog_shower = ax.imshow(np.zeros((screen_height, screen_width, 1)) , cmap='gray', vmin=0, vmax=255)
+    plt.ion()
     
     scores, eps_history = [], []
     n_games = args.n_games
@@ -72,11 +81,13 @@ if __name__ == "__main__":
             tepoch.set_description(f"Episode: {i}")
             score = 0
             done = False
-            observation = env.reset()
+            observation = reset(env, 0, screen_height , screen_width, prog_shower, frame_num)
             steps = 0
+            rew_mem = reward_memory()
             while not done:
                 action = agent.choose_action(observation)
-                observation_, reward, done, info = env.step(action)
+                observation_, done, reward = step(env, action, screen_height, screen_width,
+                                       prog_shower, frame_num, rew_mem)
                 score += reward
                 agent.store_transition(observation, action, reward, observation_, done)            
                 

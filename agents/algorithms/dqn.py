@@ -4,14 +4,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 from agents.common.buffer import ReplayBuffer, PrioritizedReplayBuffer
-from agents.common.networks import DeepQNetwork
+from agents.common.networks import DeepQNetwork, DeepQNetworkAtari
 
     
 
 class Agent():
     
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size
-                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4, use_per=True) -> None:
+                 ,n_action, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4, use_per=True,
+                 use_conv = True) -> None:
         
         self.gamma = gamma
         self.epsilon = epsilon
@@ -26,10 +27,15 @@ class Agent():
         
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         
-        self.Q_eval = DeepQNetwork(n_action=n_action, input_dims=input_dims,
-                                  fc1_dims=256, fc2_dims=256).to(self.device)
-        
-        self.target_eval = DeepQNetwork(n_action=n_action, input_dims=input_dims,
+        if use_conv:
+            self.Q_eval = DeepQNetworkAtari(n_action=n_action).to(self.device)
+            
+            self.target_eval = DeepQNetworkAtari(n_action=n_action).to(self.device)
+        else:
+            self.Q_eval = DeepQNetwork(n_action=n_action, input_dims=input_dims,
+                                    fc1_dims=256, fc2_dims=256).to(self.device)
+            
+            self.target_eval = DeepQNetwork(n_action=n_action, input_dims=input_dims,
                                   fc1_dims=256, fc2_dims=256).to(self.device)
         
         self.target_eval.load_state_dict(self.Q_eval.state_dict())
@@ -59,7 +65,7 @@ class Agent():
         
         if np.random.random() > self.epsilon:
             with T.no_grad():
-                state = T.tensor([observation]).to(self.device)
+                state = T.tensor(observation, dtype=T.float).to(self.device)
                 actions = self.Q_eval.forward(state)
                 action = T.argmax(actions).item()
         

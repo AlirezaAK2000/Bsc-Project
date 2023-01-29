@@ -12,3 +12,4 @@ runs/
 tmp/
 PPO_preTrained
 *.png
+*.pyc

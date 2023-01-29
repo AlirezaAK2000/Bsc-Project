@@ -392,7 +392,7 @@ class DeepQNetworkAtari(nn.Module):
             nn.Conv2d(64, 64, 3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3136, 512),
+            nn.Linear(2240, 512),
             nn.ReLU(),
             nn.Linear(512, n_action),
         )
