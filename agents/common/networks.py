@@ -382,10 +382,9 @@ class DeepQNetworkAtari(nn.Module):
                  num_frames=4):
         super(DeepQNetworkAtari, self).__init__()
         self.n_action = n_action
-        self.num_frames = num_frames
 
         self.network = nn.Sequential(
-            nn.Conv2d(self.num_frames, 32, 8, stride=4),
+            nn.Conv2d(num_frames, 32, 8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, 4, stride=2),
             nn.ReLU(),
@@ -406,6 +405,157 @@ class DeepQNetworkAtari(nn.Module):
         
         return output
     
+    def save_checkpoint(self):
+        T.save(self.state_dict(), self.checkpoint_file)
+
+    def load_checkpoint(self):
+        self.load_state_dict(T.load(self.checkpoint_file))
+
+
+
+def layer_init_sac(layer, bias_const=0.0):
+    nn.init.kaiming_normal_(layer.weight)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class CriticNetworkAtari(nn.Module):
+    def __init__(self, beta, n_actions, num_frames=4,
+            name='critic', chkpt_dir='tmp/sac'):
+        
+        super(CriticNetworkAtari, self).__init__()
+        self.name = name
+        self.checkpoint_dir = chkpt_dir
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
+
+        self.network = nn.Sequential(
+            layer_init_sac(nn.Conv2d(num_frames, 32, 8, stride=4)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init_sac(nn.Linear(2240, 256)),
+            nn.ReLU(),
+        )
+        
+        self.q_fun = layer_init_sac(nn.Linear(256+n_actions, 1))
+
+        self.optimizer = optim.Adam(self.parameters(), lr=beta)
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+
+        self.to(self.device)
+
+    def forward(self, state, action):
+        state = self.network(state)
+        q = self.q_fun(T.cat([state, action], dim=1))
+        
+        return q
+    
+    def save_checkpoint(self):
+        T.save(self.state_dict(), self.checkpoint_file)
+
+    def load_checkpoint(self):
+        self.load_state_dict(T.load(self.checkpoint_file))
+        
+        
+class ValueNetworkAtari(nn.Module):
+    def __init__(self, beta, num_frames=4,
+            name='value', chkpt_dir='tmp/sac'):
+        super(ValueNetworkAtari, self).__init__()
+        self.name = name
+        self.checkpoint_dir = chkpt_dir
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
+
+        self.network = nn.Sequential(
+            layer_init_sac(nn.Conv2d(num_frames, 32, 8, stride=4)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init_sac(nn.Linear(2240, 512)),
+            nn.ReLU(),
+            layer_init_sac(nn.Linear(512, 1)),
+        )
+
+        self.optimizer = optim.Adam(self.parameters(), lr=beta)
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+
+        self.to(self.device)
+
+    def forward(self, state):
+
+        v = self.network(state)
+
+        return v
+
+    def save_checkpoint(self):
+        T.save(self.state_dict(), self.checkpoint_file)
+
+    def load_checkpoint(self):
+        self.load_state_dict(T.load(self.checkpoint_file))
+        
+        
+
+class ActorNetworkAtari(nn.Module):
+    def __init__(self, alpha, max_action, n_actions, num_frames = 4, name='actor', chkpt_dir='tmp/sac'):
+        super(ActorNetworkAtari, self).__init__()
+        self.n_actions = n_actions
+        self.name = name
+        self.checkpoint_dir = chkpt_dir
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
+        self.max_action = max_action
+        self.reparam_noise = 1e-6
+
+        self.network = nn.Sequential(
+            layer_init_sac(nn.Conv2d(num_frames, 32, 8, stride=4)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init_sac(nn.Linear(2240, 256)),
+            nn.ReLU(),
+        )
+
+        self.mu = nn.Linear(256 , self.n_actions)
+        self.sigma = nn.Linear(256 , self.n_actions)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+
+        self.to(self.device)
+
+    def forward(self, state):
+        prob = self.network(state)
+
+        mu = self.mu(prob)
+        sigma = self.sigma(prob)
+
+        sigma = T.clamp(sigma, min=self.reparam_noise, max=1)
+
+        return mu, sigma
+
+    def sample_normal(self, state, reparameterize=True):
+        mu, sigma = self.forward(state)
+        probabilities = Normal(mu, sigma)
+
+        if reparameterize:
+            actions = probabilities.rsample()
+        else:
+            actions = probabilities.sample()
+
+        action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)
+        log_probs = probabilities.log_prob(actions)
+        log_probs -= T.log(1-action.pow(2)+self.reparam_noise)
+        log_probs = log_probs.sum(1, keepdim=True)
+
+        return action, log_probs
+
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)
 

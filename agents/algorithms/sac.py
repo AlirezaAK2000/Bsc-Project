@@ -3,32 +3,48 @@ import torch as T
 import torch.nn.functional as F
 import numpy as np
 from agents.common.buffer import ReplayBuffer
-from agents.common.networks import ActorNetwork, CriticNetwork, ValueNetwork
+from agents.common.networks import (ActorNetworkAtari,
+                                    CriticNetworkAtari,
+                                    ValueNetworkAtari,
+                                    ActorNetwork,
+                                    CriticNetwork,
+                                    ValueNetwork
+                                    )
 
 class Agent():
     def __init__(self, alpha=0.0003, beta=0.0003, input_dims=[8],
-            env=None, gamma=0.99, n_actions=2, max_size=1000000, tau=0.005,
-            layer1_size=256, layer2_size=256, batch_size=256, reward_scale=2):
+            env=None, gamma=0.99, n_actions=2, max_size=100000, tau=0.005,
+            layer1_size=256, layer2_size=256, batch_size=256, reward_scale=2, use_conv=True):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
         self.n_actions = n_actions
+        if use_conv:
+            self.actor = ActorNetworkAtari(alpha, n_actions=n_actions,
+                        name='actor', max_action=env.action_space.high)
+            self.critic_1 = CriticNetworkAtari(beta, n_actions=n_actions,
+                        name='critic_1')
+            self.critic_2 = CriticNetworkAtari(beta, n_actions=n_actions,
+                        name='critic_2')
+            self.value = ValueNetworkAtari(beta, name='value')
+            self.target_value = ValueNetworkAtari(beta, name='target_value')
 
-        self.actor = ActorNetwork(alpha, input_dims, n_actions=n_actions,
-                    name='actor', max_action=env.action_space.high)
-        self.critic_1 = CriticNetwork(beta, input_dims, n_actions=n_actions,
-                    name='critic_1')
-        self.critic_2 = CriticNetwork(beta, input_dims, n_actions=n_actions,
-                    name='critic_2')
-        self.value = ValueNetwork(beta, input_dims, name='value')
-        self.target_value = ValueNetwork(beta, input_dims, name='target_value')
+        else:
+            self.actor = ActorNetwork(alpha, input_dims, n_actions=n_actions,
+                        name='actor', max_action=env.action_space.high)
+            self.critic_1 = CriticNetwork(beta, input_dims, n_actions=n_actions,
+                        name='critic_1')
+            self.critic_2 = CriticNetwork(beta, input_dims, n_actions=n_actions,
+                        name='critic_2')
+            self.value = ValueNetwork(beta, input_dims, name='value')
+            self.target_value = ValueNetwork(beta, input_dims, name='target_value')
 
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
 
     def choose_action(self, observation):
-        state = T.Tensor([observation]).to(self.actor.device)
+        state = T.tensor(observation, dtype=T.float).to(self.actor.device)
         actions, _ = self.actor.sample_normal(state, reparameterize=False)
 
         return actions.cpu().detach().numpy()[0]
@@ -69,7 +85,7 @@ class Agent():
         self.critic_2.load_checkpoint()
 
     def learn(self):
-        if self.memory.mem_cntr < self.batch_size:
+        if self.memory.count < self.batch_size:
             return
 
         state, action, reward, new_state, done = \
@@ -125,3 +141,5 @@ class Agent():
         self.critic_2.optimizer.step()
 
         self.update_network_parameters()
+        
+        print("############ Policy Updated ############")
