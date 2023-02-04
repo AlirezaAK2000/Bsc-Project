@@ -15,6 +15,7 @@ def set_sync_mode(client, sync):
     settings = world.get_settings()
     settings.synchronous_mode = sync
     settings.fixed_delta_seconds = 1.0 / 10.0
+    settings.no_rendering_mode = False
 
     world.apply_settings(settings)
 
@@ -53,11 +54,15 @@ class Camera(object):
 
     
     def _process_camera_sensory_data(self, data, height, width):
-        data_arr = np.array(data, dtype=np.uint8).reshape((height , width,4))
         
-        data_pic = np.array(Image.fromarray(data_arr).convert('RGB'))
+        data_arr = data.reshape((height , width,4))
+        data_arr = data_arr[:, :, :3]
+        data_pic = data_arr[:, :, ::-1]
+        
+        # data_pic = np.array(Image.fromarray(data_arr).convert('RGB'))
 
         d = np.zeros((height, width, 1))
+        
         
         for k,v in main_classes.items():
             a = data_pic == base_classes[k]

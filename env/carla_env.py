@@ -295,7 +295,7 @@ class CarlaEnv(object):
             self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
             self._setup_sensors()
 
-            self._set_weather(weather)
+            # self._set_weather(weather)
             self._pedestrian_pool = PedestrianPool(self._client, self.num_pedestrians)
             # self._vehicle_pool = VehiclePool(self._client, n_pedestrians)
 
@@ -372,7 +372,7 @@ class CarlaEnv(object):
         info['linear_speeds'] = []
         info['locs'] = []
         info['ang_speeds'] = []
-        
+        info['col_actor'] = None
         for i in range(self.frame_num):
             
 
@@ -420,7 +420,7 @@ class CarlaEnv(object):
         reward = 0
         
         if v <= self.v_max:
-            reward = np.exp((v - v_min) / 100) - 1
+            reward = np.exp((v - self.v_min) / 100) - 1
         else:
             reward = -np.exp(v / 100)
         
@@ -428,10 +428,11 @@ class CarlaEnv(object):
         return reward
     
     def _pixel_reward(self, frame):
-        
-        ped_pix = np.count_nonzero(frame == base_classes['Pedestrian'])
+        ped_pix = np.count_nonzero(frame == main_classes['Pedestrian'])
         
         ratio = ped_pix / reduce(lambda x,y: x*y, frame.shape)
+        
+        print(f'The ratio of peds is {ratio} ')
         
         if ratio >= self.ped_th:
             return ratio * self.ped_coef
@@ -448,22 +449,23 @@ class CarlaEnv(object):
             done = True
             return reward, done
         
-        if info['col_actor'] is not None and isinstance(info['col_actor'], carla.Walker):
+        if info['col_actor'] is not None:
             done = True
             return reward, done
                    
         # speed reward
         for i in range(frames.shape[-1]):
-            reward += self._pixel_reward(frame[:,:,i]) / frames.shape[-1]
+            reward += self._pixel_reward(frames[:,:,i]) / frames.shape[-1]
         
         if reward == 0:
             reward += sum(map(self._speed_reward, info['linear_speeds']))/len(info['linear_speeds'])
         else:
-            reward += sum(map(lambda x: -np.exp(x), info['linear_speeds']))/len(info['linear_speeds'])
+            reward += sum(map(lambda x: -np.exp(x/100) + 1, info['linear_speeds']))/len(info['linear_speeds'])
             
         if self._tick / self.frame_num >= self.episode_length:
             done = True
             
+        
         return reward, done
     
     def _process_collision_sensory_data(self, event):

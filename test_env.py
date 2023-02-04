@@ -17,7 +17,8 @@ if __name__ == '__main__':
                 
                 state, reward, done, info = env.step(1)
                 
-                print(info)
+                # print(info)
+                print(f"reward: {reward}")
                 
                 step_end = time.time()
                 
