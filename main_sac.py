@@ -14,7 +14,7 @@ if __name__ == '__main__':
     screen_height = 72
     screen_width = 84
     frame_num = 4
-    num_updates = 10
+    num_updates = 20
     
     env = gym.make(env_name, continuous=True)
     agent = Agent(input_dims=(frame_num, screen_height, screen_width), env=env,
