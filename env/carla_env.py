@@ -1,224 +1,3 @@
-# ==============================================================================
-# -- imports -------------------------------------------------------------------
-# ==============================================================================
-
-# import random
-# import cv2
-
-
-# class CarEnv:
-#     SHOW_CAM = SHOW_PREVIEW
-#     STEER_AMT = 1.0
-#     im_width = IM_WIDTH
-#     im_height = IM_HEIGHT
-#     front_camera = None
-#     # num_pedestrians = NUM_PEDESTRIANS
-#     frame_num = FRAME_NUM
-#     episode_length = EPISODE_LENGTH
-    
-#     def __init__(self, fps=20):
-#         self.client = carla.Client("localhost", 2000)
-#         self.client.set_timeout(4.0)  # seconds
-#         set_sync_mode(self.client, False)        
-
-#         self.world = self.client.load_world('Town02')  # world connection
-        
-        
-#         self.blueprint_library = self.world.get_blueprint_library()
-
-#         self.model = self.blueprint_library.filter("bmw")[0]  # fetch the first model of bmw
-
-
-        
-#         self.actor_list = []
-
-#         # with open("carla/path.json" , 'r') as f:
-#         #     path = json.load(f)
-#         #     self.mapp = np.array([p['x'] for p in path]), np.array([p['y'] for p in path])
-        
-    
-
-        
-#     # def angular_error(self, yaw, x, y, n_x, n_y):
-#     #     theta_star = math.atan2(n_y - y, n_x - x)
-#     #     delta_theta = theta_star - yaw
-#     #     delta_theta = self.normalize_angle(delta_theta)
-#     #     return delta_theta
-        
-        
-
-#     def reset(self):
-        
-#         if len(self.actor_list) > 0:
-            
-#             for actor from actor_list:
-#                 actor.destroy()
-        
-        
-
-#         self.actor_list = []
-        
-#         self.step_num = 1
-
-#         # spawn vehicle
-#         self.vehicle_spawn_point = random.choice(self.world.get_map().get_spawn_points())
-#         # self.vehicle_spawn_point = self.world.get_map().get_spawn_points()[28]  # training on a specific spawn point
-#         self.vehicle = self.world.spawn_actor(self.model, self.vehicle_spawn_point)
-#         self.vehicle.set_autopilot(False)  # making sure its not in autopilot!
-#         self.actor_list.append(self.vehicle)
-
-#         # camera sensory data
-#         self.camera = self.blueprint_library.find("sensor.camera.semantic_segmentation")
-#         self.camera.set_attribute("image_size_x", f"{IM_WIDTH}")
-#         self.camera.set_attribute("image_size_y", f"{IM_HEIGHT}")
-#         self.camera.set_attribute("fov", "110")
-
-#         # spawn camera
-#         self.camera_spawn_point = carla.Transform(carla.Location(x=2, z=1))  # TODO: fine-tune these values!
-#         self.camera_sensor = self.world.spawn_actor(self.camera, self.camera_spawn_point, attach_to=self.vehicle)
-#         self.actor_list.append(self.camera_sensor)
-#         # self.camera_sensor.listen(lambda data: self.process_camera_sensory_data(data))
-#         self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
-
-#         #spawn Pedestrians
-#         # # self._pedestrians = PedestrianPool(self.client, self.num_pedestrians)
-
-#         time.sleep(3)
-        
-
-#         # collision sensor
-#         collison_sensor = self.blueprint_library.find("sensor.other.collision")
-#         self.collision_sensor = self.world.spawn_actor(collison_sensor, self.camera_spawn_point, attach_to=self.vehicle)
-#         self.actor_list.append(self.collision_sensor)
-#         self.collision_sensor.listen(lambda event: self._process_collision_sensory_data(event))
-
-#         # while self.front_camera is None:
-#         #     time.sleep(0.01)  # wait a little
-
-#         self.episode_start = time.time()
-#         self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
-
-#         state = self._get_sync_state()
-#         return state
-
-
-#     # def normalize_angle(self, angle):
-#     #     res = angle
-#     #     while res > pi:
-#     #         res -= 2.0 * pi
-#     #     while res < -pi:
-#     #         res += 2.0 * pi
-#     #     return res
-
-            
-        
-
-#     # def _process_collision_sensory_data(self, event):
-#     #     self.collision_hist.append(event)  # add the accident to the list
-        
-    
-#     def _check_reward_and_termiantion(self, frames, speeds):
-        
-#         done = False
-        
-#         if self.step_num == self.episode_length:
-#             done = True
-        
-    
-#         return (0, done)
-    
-    
-#     def _get_sync_state(self):
-        
-#         collision_events = []
-#         frames = np.zeros((self.im_height, self.im_width, self.frame_num))
-#         speeds = []
-#         with CarlaSyncMode(self.world, self.camera_sensor, fps=30) as sync_mode:
-#             for i in range(self.frame_num):   
-#                 snap_shot, img = sync_mode.tick(timeout = 2.0)
-#                 img = self._process_camera_sensory_data(img)
-#                 frames[:,:,i] = img.squeeze()
-                
-#                 if self.SHOW_CAM:
-#                     self.prog_shower.set_data(img)
-#                     plt.pause(0.0000001)
-#                 # collision_events.append(event)
-            
-#                 v = self.vehicle.get_velocity()
-#                 kmh = int(3.6 * math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2))
-#                 speeds.append(kmh)
-                
-        
-#         return (speeds, frames, [])
-
-#     def step(self, action):
-
-#         if self.step_num > self.episode_length:
-#             raise ValueError("Episode is finished.")
-
-#         done = False
-#         # left action
-#         if action == 0:
-#             self.vehicle.apply_control(carla.VehicleControl(throttle=0.3, steer=-1 * self.STEER_AMT))
-
-#         # straight
-#         elif action == 1:
-#             self.vehicle.apply_control(carla.VehicleControl(throttle=1.0, steer=0))
-
-#         # right action 
-#         elif action == 2:
-#             self.vehicle.apply_control(carla.VehicleControl(throttle=0.3, steer=1 * self.STEER_AMT))
-
-#         # nothing
-#         elif action == 3:
-#             self.vehicle.apply_control(carla.VehicleControl(throttle=0, steer=0))
-         
-#         # brake    
-#         elif action == 4:
-#             self.vehicle.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=0))
-        
-
-#         # v = self.vehicle.get_velocity()
-#         # kmh = int(3.6 * math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2))
-
-
-#         # if we had a crash
-#         # if len(self.collision_hist) != 0:
-#         #     done = True
-#         #     reward = -100
-
-#         # the car is moving too slow (discouraging running in circles even more!)
-#         # elif kmh < 10:
-#         #     done = False
-#         #     reward = -5
-#         # self._pedestrians.tick()
-#         # else:
-#         #     if i == len(self.mapp[0]) - 1:
-#         #         done = True
-#         #         reward = 100
-#         #     else:
-#         #         n_x, n_y = self.mapp[0][i], self.mapp[1][i]
-#         #         lateral_error = math.sqrt((x - n_x)**2 + (n_y - y)**2)
-#         #         long_error = self.angular_error(yaw ,x, y, n_x, n_y)
-#         #         #  terminating the episode (no reward)
-#         #         if self.episode_start + EPISODE_LENGTH < time.time():
-#         #             done = True
-                    
-#         #         if lateral_error
-        
-        
-
-#         state = self._get_sync_state()
-        
-#         speeds, frames, collision_events = state
-        
-#         self.step_num += 1
-        
-#         reward, done = self._check_reward_and_termiantion(frames, speeds)
-
-#         return state, reward, done, None
-
-
 
 import collections
 import queue
@@ -231,7 +10,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import carla
 import random
-from functools import reduce 
+from functools import reduce
+
+STRAIGHT = 0
+NOTHING = 1
+BRAKE = 2 
 
 class CarlaEnv(object):
     
@@ -248,7 +31,7 @@ class CarlaEnv(object):
     ped_coef = PED_COEF
     
     
-    def __init__(self, town='Town02', port=2000, **kwargs):
+    def __init__(self, town='Town02', port=2000, continuous_action = False, **kwargs):
         self._client = carla.Client('localhost', port)
         self._client.set_timeout(30.0)
 
@@ -257,6 +40,7 @@ class CarlaEnv(object):
         self._town_name = town
         self._world = self._client.load_world(town)
         self._map = self._world.get_map()
+        self.continues_action = continuous_action
 
         self._blueprints = self._world.get_blueprint_library()
 
@@ -272,6 +56,12 @@ class CarlaEnv(object):
         self._actor_dict = collections.defaultdict(list)
         self._cameras = dict()
         
+        self.throttle_min = 0
+        self.throttle_max = 1
+        self.brake_min = 0
+        self.brake_max = 1
+        
+        
 
     def _set_weather(self, weather_string):
         if weather_string == 'random':
@@ -281,11 +71,11 @@ class CarlaEnv(object):
 
         self.weather = weather
         self._world.set_weather(weather)
+        
 
     def reset(self, weather='random', seed=0):
         is_ready = False
 
-        self.collision_hist = []
         
         while not is_ready:
             np.random.seed(seed)
@@ -311,7 +101,6 @@ class CarlaEnv(object):
             
             img = self._cameras['sem_img'].get()
             state[:,:,i] = img.squeeze()
-            
         
         return state
         
@@ -326,7 +115,7 @@ class CarlaEnv(object):
 
     def ready(self, ticks=10):
         for _ in range(ticks):
-            self.step(3)
+            self.step(NOTHING)
 
         for x in self._actor_dict['camera']:
             x.get()
@@ -336,33 +125,25 @@ class CarlaEnv(object):
 
         return True
     
+    
 
     def step(self, action):
 
-        # left action
-        if action == 0:
-            self._player.apply_control(carla.VehicleControl(throttle=0.3, steer=-1 * self.STEER_AMT))
-
         # straight
-        elif action == 1:
+        if action == STRAIGHT:
             self._player.apply_control(carla.VehicleControl(throttle=0.5, steer=0))
 
-        # right action 
-        elif action == 2:
-            self._player.apply_control(carla.VehicleControl(throttle=0.3, steer=1 * self.STEER_AMT))
-
         # nothing
-        elif action == 3:
+        elif action == NOTHING:
             self._player.apply_control(carla.VehicleControl(throttle=0, steer=0))
          
         # brake    
-        elif action == 4:
-            self._player.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=0))
+        elif action == BRAKE:
+            self._player.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=1))
         
+        else:
+            raise ValueError("There is no such thing !!!")
 
-
-        # Put here for speed (get() busy polls queue).
-        
         
         state = np.zeros((self.im_height, self.im_width, self.frame_num))
         done = False
@@ -373,6 +154,8 @@ class CarlaEnv(object):
         info['locs'] = []
         info['ang_speeds'] = []
         info['col_actor'] = None
+        info['lane_invasion'] = False
+        
         for i in range(self.frame_num):
             
 
@@ -401,42 +184,37 @@ class CarlaEnv(object):
             info['ang_speeds'].append(theta)
             info['nearest_ped'] = self._pedestrian_pool.check_dist(x, y)
             
-            if len(self.collision_hist) > 0:
-                other_actor = self.collision_hist[0].other_actor
+            if len(self._collision_hist) > 0:
+                other_actor = self._collision_hist[0].other_actor
                 info['col_actor'] = other_actor
-                # if isinstance(other_actor, carla.Walker) and not ped_col:
-                #     ped_col = True
+            
+            if len(self._lane_invasion_hist) > 0 or (not np.any(img == main_classes['Road'])):
+                info['lane_invasion'] = True
+                print(" ***** lane_invasion detected *********")
                     
         
         info['tick'] = self._tick
-        
         reward , done= self._check_reward_and_termination(state, info)
-        
         return state, reward, done, info
         
 
     def _speed_reward(self, v):
         
         reward = 0
-        
         if v <= self.v_max:
             reward = np.exp((v - self.v_min) / 100) - 1
         else:
             reward = -np.exp(v / 100)
-        
-        
         return reward
     
+    
     def _pixel_reward(self, frame):
+        
         ped_pix = np.count_nonzero(frame == main_classes['Pedestrian'])
-        
         ratio = ped_pix / reduce(lambda x,y: x*y, frame.shape)
-        
-        print(f'The ratio of peds is {ratio} ')
-        
+        # print(f'The ratio of peds is {ratio} ')
         if ratio >= self.ped_th:
             return ratio * self.ped_coef
-        
         return 0
         
 
@@ -449,7 +227,7 @@ class CarlaEnv(object):
             done = True
             return reward, done
         
-        if info['col_actor'] is not None:
+        if (info['col_actor'] is not None) or info['lane_invasion']:
             done = True
             return reward, done
                    
@@ -465,12 +243,13 @@ class CarlaEnv(object):
         if self._tick / self.frame_num >= self.episode_length:
             done = True
             
-        
         return reward, done
     
     def _process_collision_sensory_data(self, event):
-        self.collision_hist.append(event)  # add the accident to the list
+        self._collision_hist.append(event)  # add the accident to the list
 
+    def _process_lane_invasion_sensory_date(self, event):
+        self._lane_invasion_hist.append(event)
     
     def _setup_sensors(self):
         """
@@ -483,6 +262,12 @@ class CarlaEnv(object):
         collision_sensor = self._world.spawn_actor(collison_sensor, carla.Transform(), attach_to=self._player)
         collision_sensor.listen(lambda event: self._process_collision_sensory_data(event))
         self._actor_dict['collision_sensor'] = collision_sensor
+        
+        # lane invasion sensor
+        li_sensor = self._blueprints.find("sensor.other.lane_invasion")
+        li_sensor = self._world.spawn_actor(li_sensor, carla.Transform(), attach_to=self._player)
+        li_sensor.listen(lambda event: self._process_lane_invasion_sensory_date(event))
+        self._actor_dict['lane_invasion'] = li_sensor
         
 
     def __enter__(self):
@@ -506,9 +291,14 @@ class CarlaEnv(object):
 
         
         for actor_type in list(self._actor_dict.keys()):
+            
             if 'collision' in actor_type:
                 self._actor_dict[actor_type].destroy()
-                break
+                continue
+            elif 'lane_invasion' in actor_type:
+                self._actor_dict[actor_type].destroy()
+                continue
+            
             self._client.apply_batch([carla.command.DestroyActor(x) for x in self._actor_dict[actor_type]])
             self._actor_dict[actor_type].clear()
 
@@ -518,3 +308,5 @@ class CarlaEnv(object):
         self._time_start = time.time()
 
         self._player = None
+        self._collision_hist = []
+        self._lane_invasion_hist = []

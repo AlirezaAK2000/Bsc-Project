@@ -1,4 +1,4 @@
-from env.carla_env import CarlaEnv
+from env.carla_env import *
 import time
 
 if __name__ == '__main__':
@@ -11,13 +11,19 @@ if __name__ == '__main__':
             env.reset()
             print("Episode started")
             episode_start = time.time()
+            # brake_step = 0
             while True:
-                print("#####################################3")
+                print("######################################")
                 step_start = time.time()
                 
-                state, reward, done, info = env.step(1)
+                # if brake_step < 10:
+                state, reward, done, info = env.step(STRAIGHT)
+                    # brake_step += 1
+                # else:
+                #     state, reward, done, info = env.step(BRAKE)
+                #     brake_step = 0
                 
-                # print(info)
+                print(info['linear_speeds'])
                 print(f"reward: {reward}")
                 
                 step_end = time.time()

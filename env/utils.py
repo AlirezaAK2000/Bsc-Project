@@ -14,7 +14,7 @@ def set_sync_mode(client, sync):
 
     settings = world.get_settings()
     settings.synchronous_mode = sync
-    settings.fixed_delta_seconds = 1.0 / 10.0
+    settings.fixed_delta_seconds = 1.0 / 5.0
     settings.no_rendering_mode = False
 
     world.apply_settings(settings)
@@ -47,9 +47,6 @@ class Camera(object):
         array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
         array = self._process_camera_sensory_data(array, image.height, image.width)
         
-        # if self.type == 'semantic_segmentation':
-        #     return array[:, :, 0]
-
         return array
 
     
@@ -59,7 +56,6 @@ class Camera(object):
         data_arr = data_arr[:, :, :3]
         data_pic = data_arr[:, :, ::-1]
         
-        # data_pic = np.array(Image.fromarray(data_arr).convert('RGB'))
 
         d = np.zeros((height, width, 1))
         
