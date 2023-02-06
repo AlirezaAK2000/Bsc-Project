@@ -18,27 +18,44 @@ BRAKE = 2
 
 class CarlaEnv(object):
     
-    SHOW_CAM = SHOW_PREVIEW
-    STEER_AMT = 1.0
-    im_width = IM_WIDTH
-    im_height = IM_HEIGHT
-    frame_num = FRAME_NUM
-    episode_length = EPISODE_LENGTH
-    num_pedestrians = NUM_PEDESTRIANS
-    v_min = V_MIN
-    v_max = V_MAX
-    ped_th = PEDESTRIAN_CAMERA_RATIO_TH
-    ped_coef = PED_COEF
     
     
-    def __init__(self, town='Town02', port=2000, continuous_action = False, **kwargs):
-        self._client = carla.Client('localhost', port)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    def __init__(self, conf, continuous_action = False, **kwargs):
+        
+        self.SHOW_CAM = conf['SHOW_PREVIEW']
+        self.im_width = conf['IM_WIDTH']
+        self.im_height = conf['IM_HEIGHT']
+        self.frame_num = conf['FRAME_NUM']
+        self.episode_length = conf['EPISODE_LENGTH']
+        self.num_pedestrians = conf['NUM_PEDESTRIANS']
+        self.v_min = conf['V_MIN']
+        self.v_max = conf['V_MAX']
+        self.ped_th = conf['PEDESTRIAN_CAMERA_RATIO_TH']
+        self.ped_coef = conf['PED_COEF']
+        self._town_name = conf['town']
+        self.vehicle_name = conf['VEHICLE_NAME']
+        
+        
+        
+        self._client = carla.Client('localhost', conf['port'])
         self._client.set_timeout(30.0)
+        
+        
 
         set_sync_mode(self._client, False)
 
-        self._town_name = town
-        self._world = self._client.load_world(town)
+        self._world = self._client.load_world(self._town_name)
         self._map = self._world.get_map()
         self.continuous_action = continuous_action
 
@@ -55,11 +72,13 @@ class CarlaEnv(object):
         # vehicle, sensor
         self._actor_dict = collections.defaultdict(list)
         self._cameras = dict()
+        self._routes = [0,1,6,8]
         
         self.throttle_min = 0
         self.throttle_max = 1
         self.brake_min = 0
         self.brake_max = 1
+        self.n_action = 3
         
         
 
@@ -71,7 +90,6 @@ class CarlaEnv(object):
 
         self.weather = weather
         self._world.set_weather(weather)
-        self._routes = [0,1,6,8]
         
 
     def reset(self, weather='random', seed=0):
@@ -90,7 +108,9 @@ class CarlaEnv(object):
             # self._set_weather(weather)
             self._pedestrian_pool = PedestrianPool(self._client, self.num_pedestrians)
             # self._vehicle_pool = VehiclePool(self._client, n_pedestrians)
-
+            self._client.start_recorder("log.log")
+                
+                
             is_ready = self.ready()
         
         state = np.zeros((self.im_height, self.im_width, self.frame_num))
@@ -104,18 +124,23 @@ class CarlaEnv(object):
             img = self._cameras['sem_img'].get()
             state[:,:,i] = img.squeeze()
         
-        return state
+        return state.transpose((2, 0, 1))[None,:,:,:]
         
 
     def _spawn_player(self, start_pose):
-        vehicle_bp = self._blueprints.filter(VEHICLE_NAME)[0]
+        vehicle_bp = self._blueprints.filter(self.vehicle_name)[0]
         vehicle_bp.set_attribute('role_name', 'hero')
         self._player = self._world.spawn_actor(vehicle_bp, start_pose)
         self._actor_dict['player'].append(self._player)
 
     def ready(self, ticks=10):
-        for _ in range(ticks):
-            self.step(NOTHING)
+        
+        if not self.continuous_action:
+            for _ in range(ticks):
+                self.step(NOTHING)
+        else:
+            for _ in range(ticks):
+                self.step([0,0])
 
         for x in self._actor_dict['camera']:
             x.get()
@@ -125,7 +150,7 @@ class CarlaEnv(object):
 
         return True
     
-    def step(self, action):
+    def step(self, action, increment_tick = True):
 
         if not self.continuous_action:
 
@@ -136,7 +161,8 @@ class CarlaEnv(object):
             elif action == BRAKE:
                 self._player.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=1))
             else:
-                raise ValueError("There is no such thing !!!")
+                msg = f"There is no such thing {action}!!!"
+                raise ValueError(msg)
         
         else:
             
@@ -162,7 +188,8 @@ class CarlaEnv(object):
         for i in range(self.frame_num):
             
             self._world.tick()
-            self._tick += 1
+            if increment_tick:
+                self._tick += 1
             self._pedestrian_pool.tick()
             
             img = self._cameras['sem_img'].get()
@@ -191,11 +218,10 @@ class CarlaEnv(object):
             
             if len(self._lane_invasion_hist) > 0 or (not np.any(img == main_classes['Road'])):
                 info['lane_invasion'] = True
-                print(" ***** lane_invasion detected *********")
                     
         info['tick'] = self._tick
         reward , done= self._check_reward_and_termination(state, info)
-        return state, reward, done, info
+        return state.transpose((2, 0, 1))[None,:,:,:] , reward, done, info
         
 
     def _speed_reward(self, v):
@@ -221,10 +247,12 @@ class CarlaEnv(object):
     def _check_reward_and_termination(self, frames, info):
         
         done, reward = False, 0
+        info['col_with_ped'] = False
         
         if info['nearest_ped'] < 2.3 or ( info['col_actor'] is not None and isinstance(info['col_actor'], carla.Walker)):
             reward = -100
             done = True
+            info['col_with_ped'] = True
             return reward, done
         
         if (info['col_actor'] is not None) or info['lane_invasion']:

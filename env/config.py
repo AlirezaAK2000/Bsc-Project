@@ -1,16 +1,7 @@
 import numpy as np
 import carla
+import json
 
-SHOW_PREVIEW = True
-IM_WIDTH = 84
-IM_HEIGHT = 84
-EPISODE_LENGTH = 200
-NUM_PEDESTRIANS = 500
-FRAME_NUM = 4
-V_MIN = 10 #kmh
-V_MAX = 30
-PEDESTRIAN_CAMERA_RATIO_TH = 0.02
-PED_COEF = -10
 
 PRESET_WEATHERS = {
     1: carla.WeatherParameters.ClearNoon,
@@ -31,7 +22,6 @@ PRESET_WEATHERS = {
 }
 
 WEATHERS = list(PRESET_WEATHERS.values())
-VEHICLE_NAME = 'vehicle.seat.leon'
 
 
 base_classes = {

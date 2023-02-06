@@ -1,13 +1,17 @@
 from env.carla_env import *
 import time
+import json
 
 if __name__ == '__main__':
+    episodes = 1
+    with open("config.json", 'r') as f:
+        
+        conf = json.load(f)
+        conf = conf['carla']
     
-    
-    episodes = 10
     for _ in range(episodes):
         print('====================================================================================')
-        with CarlaEnv() as env: 
+        with CarlaEnv(conf) as env: 
             env.reset()
             print("Episode started")
             episode_start = time.time()
