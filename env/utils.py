@@ -14,7 +14,7 @@ def set_sync_mode(client, sync):
 
     settings = world.get_settings()
     settings.synchronous_mode = sync
-    settings.fixed_delta_seconds = 1.0 / 5.0
+    settings.fixed_delta_seconds = 1.0 / 10.0
     settings.no_rendering_mode = False
 
     world.apply_settings(settings)

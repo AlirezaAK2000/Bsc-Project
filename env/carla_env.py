@@ -40,7 +40,7 @@ class CarlaEnv(object):
         self._town_name = town
         self._world = self._client.load_world(town)
         self._map = self._world.get_map()
-        self.continues_action = continuous_action
+        self.continuous_action = continuous_action
 
         self._blueprints = self._world.get_blueprint_library()
 
@@ -71,6 +71,7 @@ class CarlaEnv(object):
 
         self.weather = weather
         self._world.set_weather(weather)
+        self._routes = [0,1,6,8]
         
 
     def reset(self, weather='random', seed=0):
@@ -82,7 +83,8 @@ class CarlaEnv(object):
 
             self._clean_up()
             print(f'there are {len(self._world.get_map().get_spawn_points())} points')
-            self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
+            # self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
+            self._spawn_player(self._world.get_map().get_spawn_points()[random.choice(self._routes)])
             self._setup_sensors()
 
             # self._set_weather(weather)
@@ -108,9 +110,7 @@ class CarlaEnv(object):
     def _spawn_player(self, start_pose):
         vehicle_bp = self._blueprints.filter(VEHICLE_NAME)[0]
         vehicle_bp.set_attribute('role_name', 'hero')
-
         self._player = self._world.spawn_actor(vehicle_bp, start_pose)
-
         self._actor_dict['player'].append(self._player)
 
     def ready(self, ticks=10):
@@ -125,24 +125,27 @@ class CarlaEnv(object):
 
         return True
     
-    
-
     def step(self, action):
 
-        # straight
-        if action == STRAIGHT:
-            self._player.apply_control(carla.VehicleControl(throttle=0.5, steer=0))
+        if not self.continuous_action:
 
-        # nothing
-        elif action == NOTHING:
-            self._player.apply_control(carla.VehicleControl(throttle=0, steer=0))
-         
-        # brake    
-        elif action == BRAKE:
-            self._player.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=1))
+            if action == STRAIGHT:
+                self._player.apply_control(carla.VehicleControl(throttle=0.5, steer=0))
+            elif action == NOTHING:
+                self._player.apply_control(carla.VehicleControl(throttle=0, steer=0))
+            elif action == BRAKE:
+                self._player.apply_control(carla.VehicleControl(throttle=0, steer=0, brake=1))
+            else:
+                raise ValueError("There is no such thing !!!")
         
         else:
-            raise ValueError("There is no such thing !!!")
+            
+            if action[0] > self.throttle_max or action[0] < self.throttle_min: 
+                raise ValueError("Throttle must be between 0 and 1")
+            if action[1] > self.brake_max or action[1] < self.brake_min: 
+                raise ValueError("Brake must be between 0 and 1")
+            
+            self._player.apply_control(carla.VehicleControl(throttle=action[0], brake=action[1]))
 
         
         state = np.zeros((self.im_height, self.im_width, self.frame_num))
@@ -158,7 +161,6 @@ class CarlaEnv(object):
         
         for i in range(self.frame_num):
             
-
             self._world.tick()
             self._tick += 1
             self._pedestrian_pool.tick()
@@ -173,7 +175,6 @@ class CarlaEnv(object):
             transform = self._player.get_transform()
             v = self._player.get_velocity()
             kmh = int(3.6 * math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2))
-            
             
             x = transform.location.x
             y = transform.location.y
@@ -192,7 +193,6 @@ class CarlaEnv(object):
                 info['lane_invasion'] = True
                 print(" ***** lane_invasion detected *********")
                     
-        
         info['tick'] = self._tick
         reward , done= self._check_reward_and_termination(state, info)
         return state, reward, done, info
@@ -231,10 +231,10 @@ class CarlaEnv(object):
             done = True
             return reward, done
                    
-        # speed reward
         for i in range(frames.shape[-1]):
             reward += self._pixel_reward(frames[:,:,i]) / frames.shape[-1]
         
+        # speed reward
         if reward == 0:
             reward += sum(map(self._speed_reward, info['linear_speeds']))/len(info['linear_speeds'])
         else:

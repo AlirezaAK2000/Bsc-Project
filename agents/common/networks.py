@@ -294,7 +294,7 @@ class ActorCriticPPOAtari(nn.Module):
                             layer_init(nn.Conv2d(64, 64, 3, stride=1)),
                             nn.Tanh(),
                             nn.Flatten(),
-                            layer_init(nn.Linear(2240, 512)),
+                            layer_init(nn.Linear(3136, 512)),
                             nn.Tanh(),
                             layer_init(nn.Linear(512, action_dim)),
                         )
@@ -307,7 +307,7 @@ class ActorCriticPPOAtari(nn.Module):
                             layer_init(nn.Conv2d(64, 64, 3, stride=1)),
                             nn.Tanh(),
                             nn.Flatten(),
-                            layer_init(nn.Linear(2240, 512)),
+                            layer_init(nn.Linear(3136, 512)),
                             nn.Tanh(),
                             layer_init(nn.Linear(512, action_dim)),
                             nn.Softmax(dim=-1)
@@ -321,7 +321,7 @@ class ActorCriticPPOAtari(nn.Module):
                             layer_init(nn.Conv2d(64, 64, 3, stride=1)),
                             nn.Tanh(),
                             nn.Flatten(),
-                            layer_init(nn.Linear(2240, 512)),
+                            layer_init(nn.Linear(3136, 512)),
                             nn.Tanh(),
                             layer_init(nn.Linear(512, 1), std=1)
                         )
@@ -391,7 +391,7 @@ class DeepQNetworkAtari(nn.Module):
             nn.Conv2d(64, 64, 3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(2240, 512),
+            nn.Linear(3136, 512),
             nn.ReLU(),
             nn.Linear(512, n_action),
         )
@@ -436,7 +436,7 @@ class CriticNetworkAtari(nn.Module):
             layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init_sac(nn.Linear(2240, 256)),
+            layer_init_sac(nn.Linear(3136, 256)),
             nn.ReLU(),
         )
         
@@ -476,7 +476,7 @@ class ValueNetworkAtari(nn.Module):
             layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init_sac(nn.Linear(2240, 512)),
+            layer_init_sac(nn.Linear(3136, 512)),
             nn.ReLU(),
             layer_init_sac(nn.Linear(512, 1)),
         )
@@ -518,7 +518,7 @@ class ActorNetworkAtari(nn.Module):
             layer_init_sac(nn.Conv2d(64, 64, 3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init_sac(nn.Linear(2240, 256)),
+            layer_init_sac(nn.Linear(3136, 256)),
             nn.ReLU(),
         )
 

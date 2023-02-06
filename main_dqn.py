@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--gamma", type=float, default=0.99,
         help="Discount factor")
     
-    parser.add_argument("--epsilon", type=float, default=0.8,
+    parser.add_argument("--epsilon", type=float, default=0,
         help="Epsilon for exploration")
     
     parser.add_argument("--n_games", type=int, default=500,
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    screen_height = 72
+    screen_height = 84
     screen_width = 84
     frame_num = 4
     
