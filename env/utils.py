@@ -1,13 +1,12 @@
-import numpy as np
-import carla
+
 try:
     import queue
 except ImportError:
     import Queue as queue
-    
-from PIL import Image, ImageDraw
+
 from env.config import *
 import math
+
 
 def set_sync_mode(client, sync):
     world = client.get_world()
@@ -21,7 +20,7 @@ def set_sync_mode(client, sync):
 
 
 class Camera(object):
-    def __init__(self, world, player, w, h, fov, x, y, z, pitch, yaw, type='rgb'):
+    def __init__(self, world, player, w, h, fov, x, y, z, pitch, yaw, type='rgb', record=True, save_path=""):
         bp = world.get_blueprint_library().find('sensor.camera.%s' % type)
         bp.set_attribute('image_size_x', str(w))
         bp.set_attribute('image_size_y', str(h))
@@ -33,6 +32,11 @@ class Camera(object):
 
         self.type = type
         self.queue = queue.Queue()
+        self.record = record
+        self.video_frames = []
+        self.save_path = save_path
+        self.w = w
+        self.h = h
 
         self.camera = world.spawn_actor(bp, transform, attach_to=player)
         self.camera.listen(self.queue.put)
@@ -42,27 +46,30 @@ class Camera(object):
 
         while image is None or self.queue.qsize() > 0:
             image = self.queue.get()
-            
-        image.convert(carla.ColorConverter.CityScapesPalette)
+
+        if 'semantic' in self.type:
+            image.convert(carla.ColorConverter.CityScapesPalette)
+
         array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
-        array = self._process_camera_sensory_data(array, image.height, image.width)
-        
+        array = np.reshape(array, (image.height, image.width, 4))
+        array = array[:, :, :3]
+        array = array[:, :, ::-1]
+
+        if 'semantic' in self.type:
+            array = self._process_camera_sensory_data(array, image.height, image.width)
+
+        if self.record:
+            self.video_frames.append(array[None, :, :, :])
+
         return array
 
-    
-    def _process_camera_sensory_data(self, data, height, width):
-        
-        data_arr = data.reshape((height , width,4))
-        data_arr = data_arr[:, :, :3]
-        data_pic = data_arr[:, :, ::-1]
-        
+    def _process_camera_sensory_data(self, data_pic, height, width):
 
         d = np.zeros((height, width, 1))
-        
-        
-        for k,v in main_classes.items():
+
+        for k, v in main_classes.items():
             a = data_pic == base_classes[k]
-            a = np.prod(a , axis=2)[:,:,None] 
+            a = np.prod(a, axis=2)[:, :, None]
             a = a == 1
             d[a] = v
 
@@ -75,6 +82,9 @@ class Camera(object):
         with self.queue.mutex:
             self.queue.queue.clear()
 
+        if self.record:
+            video = np.concatenate(self.video_frames)
+            np.save(self.save_path ,video)
 
 
 class VehiclePool(object):
@@ -91,8 +101,8 @@ class VehiclePool(object):
             bp.set_attribute('role_name', 'autopilot')
 
             batch.append(
-                    carla.command.SpawnActor(bp, transform).then(
-                        carla.command.SetAutopilot(carla.command.FutureActor, True)))
+                carla.command.SpawnActor(bp, transform).then(
+                    carla.command.SetAutopilot(carla.command.FutureActor, True)))
 
         self.vehicles = list()
         errors = set()
@@ -120,19 +130,19 @@ class PedestrianPool(object):
         ped_bp = self.world.get_blueprint_library().find('walker.pedestrian.0002')
         # ped_bp = self.world.get_blueprint_library().filter('walker.pedestrian.*')
         con_bp = self.world.get_blueprint_library().find('controller.ai.walker')
-        
+
         # for actor in ped_bp:
-            
+
         #     if actor.has_attribute('is_invincible'):
         #         actor.set_attribute('is_invincible', 'false')
-                
+
         if ped_bp.has_attribute('is_invincible'):
             ped_bp.set_attribute('is_invincible', 'false')
 
         spawn_points = [self._get_spawn_point() for _ in range(n_pedestrians)]
         # batch = [carla.command.SpawnActor(np.random.choice(ped_bp), spawn) for spawn in spawn_points]
         batch = [carla.command.SpawnActor(ped_bp, spawn) for spawn in spawn_points]
-        
+
         walkers = list()
         errors = set()
 
@@ -162,7 +172,7 @@ class PedestrianPool(object):
         self.controllers = self.world.get_actors(controllers)
 
         self.world.set_pedestrians_cross_factor(1)
-        
+
         for controller in self.controllers:
             controller.start()
             controller.go_to_location(self.world.get_random_location_from_navigation())
@@ -181,14 +191,14 @@ class PedestrianPool(object):
                 return spawn
 
         raise ValueError('No valid spawns.')
-    
+
     def check_dist(self, x, y):
-        
+
         nearest = 1e5
         for walker in self.walkers:
             transform = walker.get_transform()
             p_x, p_y = transform.location.x, transform.location.y
-            dist = math.sqrt((x-p_x)**2 + (y-p_y)**2)
+            dist = math.sqrt((x - p_x) ** 2 + (y - p_y) ** 2)
             if dist < nearest:
                 nearest = dist
         return nearest
@@ -207,5 +217,3 @@ class PedestrianPool(object):
 
         self.client.apply_batch([carla.command.DestroyActor(x) for x in self.walkers])
         self.client.apply_batch([carla.command.DestroyActor(x) for x in self.controllers])
-
-

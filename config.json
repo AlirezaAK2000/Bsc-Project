@@ -13,6 +13,11 @@
         "V_MAX" : 30 , 
         "PEDESTRIAN_CAMERA_RATIO_TH" : 0.02 , 
         "PED_COEF" : -10,
+        "COLLISION_REWARD" : -100,
+
+        "RECORD_EPISODES": true,
+        "N_EPISODE_RECORD": 100,
+        "SAVE_RECORD_PATH": "recordings/",
 
         "VEHICLE_NAME" : "vehicle.seat.leon",        
         "town": "Town02",

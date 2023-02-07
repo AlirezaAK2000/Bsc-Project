@@ -13,3 +13,6 @@ tmp/
 PPO_preTrained
 *.png
 *.pyc
+recordings/
+.npy
+.idea
