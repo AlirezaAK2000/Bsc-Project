@@ -1,4 +1,5 @@
 import collections
+import math
 import time
 from env.utils import *
 from env.config import *
@@ -30,14 +31,16 @@ class CarlaEnv(object):
         self.ped_coef = conf['PED_COEF']
         self._town_name = conf['town']
         self.vehicle_name = conf['VEHICLE_NAME']
-        self.record = conf['RECORD_EPISODES']
+        self._record_init = conf['RECORD_EPISODES']
         self.n_episode_record = conf['N_EPISODE_RECORD']
         self._save_record_path = conf['SAVE_RECORD_PATH']
         self._collision_reward = conf['COLLISION_REWARD']
+        self.record = False
 
         exp_folder = f"{int(time.time())}_exp"
         self._save_record_path = os.path.join(self._save_record_path, exp_folder)
-        os.mkdir(self._save_record_path)
+        if self._record_init:
+            os.mkdir(self._save_record_path)
 
         self._client = carla.Client('localhost', conf['port'])
         self._client.set_timeout(30.0)
@@ -60,7 +63,8 @@ class CarlaEnv(object):
 
         self._actor_dict = collections.defaultdict(list)
         self._cameras = dict()
-        self._routes = [0, 1, 6, 8]
+        self._routes = [0, 6, 8, 14, 16, 18, 19, 21, 24, 29]
+        self._routes_distances = []
 
         self.throttle_min = 0
         self.throttle_max = 1
@@ -81,13 +85,14 @@ class CarlaEnv(object):
     def reset(self, seed=0):
         is_ready = False
         self._episode_num += 1
-        self.record = self._episode_num % self.n_episode_record == 0
+        self.record = self._episode_num % self.n_episode_record == 0 and self._record_init
 
         while not is_ready:
             np.random.seed(seed)
             self._clean_up()
             # self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
-            self._spawn_player(self._world.get_map().get_spawn_points()[random.choice(self._routes)])
+            # self._spawn_player(self._world.get_map().get_spawn_points()[random.choice(self._routes)])
+            self._spawn_player(self._world.get_map().get_spawn_points()[30])
             self._setup_sensors()
             # self._set_weather(weather)
             self._pedestrian_pool = PedestrianPool(self._client, self.num_pedestrians)
@@ -102,6 +107,9 @@ class CarlaEnv(object):
             self._pedestrian_pool.tick()
             img = self._cameras['sem_img'].get()
             state[:, :, i] = img.squeeze()
+
+        t = self._player.get_transform()
+        self._starting_point = (t.location.x, t.location.y)
 
         return state.transpose((2, 0, 1))[None, :, :, :]
 
@@ -180,6 +188,7 @@ class CarlaEnv(object):
             x = transform.location.x
             y = transform.location.y
             theta = transform.rotation.yaw
+            info['dist_covered'] = math.sqrt((self._starting_point[0] - x) ** 2 + (self._starting_point[1] - y) ** 2)
 
             info['linear_speeds'].append(kmh)
             info['locs'].append((x, y))

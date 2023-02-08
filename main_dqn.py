@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
                     tepoch.update(1)
 
-                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", (speeds), n_games)
+                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
                 writer.add_scalar("charts/Covered Distance per Episode(m)", avg_score, n_games)
                 n_games += 1
 

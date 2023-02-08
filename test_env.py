@@ -29,6 +29,8 @@ if __name__ == '__main__':
 
                 print(info['linear_speeds'])
                 print(f"reward: {reward}")
+                print(f"tick : {info['tick']}")
+                print(f"dist: {info['dist_covered']}")
 
                 step_end = time.time()
 

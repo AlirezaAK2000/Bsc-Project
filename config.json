@@ -7,16 +7,16 @@
         "IM_HEIGHT" : 84 , 
         "FRAME_NUM" : 4 , 
 
-        "EPISODE_LENGTH" : 50 , 
-        "NUM_PEDESTRIANS" : 500 , 
+        "EPISODE_LENGTH" : 100 ,
+        "NUM_PEDESTRIANS" : 0 ,
         "V_MIN" : 10 , 
         "V_MAX" : 30 , 
         "PEDESTRIAN_CAMERA_RATIO_TH" : 0.02 , 
         "PED_COEF" : -10,
         "COLLISION_REWARD" : -100,
 
-        "RECORD_EPISODES": true,
-        "N_EPISODE_RECORD": 100,
+        "RECORD_EPISODES": false,
+        "N_EPISODE_RECORD": 10,
         "SAVE_RECORD_PATH": "recordings/",
 
         "VEHICLE_NAME" : "vehicle.seat.leon",        
