@@ -48,6 +48,8 @@ if __name__ == "__main__":
                 observation = env.reset()
                 speeds = []
                 dists = []
+                covered_dist = 0
+                col_with_ped = 0
                 while not done:
 
                     tepoch.set_description(f"Step: {n_step}")
@@ -55,7 +57,8 @@ if __name__ == "__main__":
                     observation_, reward, done, info = env.step(action)
                     score += reward
                     agent.store_transition(observation, action, reward, observation_, done)
-                    agent.learn(n_step)
+                    for _ in range(conf['n_step_update']):
+                        agent.learn(n_step)
                     observation = observation_
 
                     if done:
@@ -71,11 +74,15 @@ if __name__ == "__main__":
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
                     p, p_ = info['locs'][0], info['locs'][-1]
                     dists.append(math.sqrt((p[0] - p_[0]) ** 2 + (p[1] - p_[1]) ** 2))
+                    covered_dist = info['dist_covered']
+                    col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
 
                     tepoch.update(1)
 
                 writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
-                writer.add_scalar("charts/Covered Distance per Episode(m)", avg_score, n_games)
+                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_games)
+                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_games)
+
                 n_games += 1
 
             if n_step % 100 == 0:

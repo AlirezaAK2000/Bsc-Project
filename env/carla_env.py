@@ -64,7 +64,7 @@ class CarlaEnv(object):
         self._actor_dict = collections.defaultdict(list)
         self._cameras = dict()
         self._routes = [0, 6, 8, 14, 16, 18, 19, 21, 24, 29]
-        self._routes_distances = []
+        self._routes_len = [160.50, 155.09, 181, 140, 155, 176, 135, 176, 176, 165]
 
         self.throttle_min = 0
         self.throttle_max = 1
@@ -86,19 +86,25 @@ class CarlaEnv(object):
         is_ready = False
         self._episode_num += 1
         self.record = self._episode_num % self.n_episode_record == 0 and self._record_init
+        self._starting_point = (0, 0)
+        self._path_length = -1
 
         while not is_ready:
             np.random.seed(seed)
             self._clean_up()
             # self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
-            # self._spawn_player(self._world.get_map().get_spawn_points()[random.choice(self._routes)])
-            self._spawn_player(self._world.get_map().get_spawn_points()[30])
+            idx = random.randint(0, len(self._routes) - 1)
+            self._spawn_player(self._world.get_map().get_spawn_points()[self._routes[idx]])
+            self._path_length = self._routes_len[idx]
+            # self._spawn_player(self._world.get_map().get_spawn_points()[29])
             self._setup_sensors()
             # self._set_weather(weather)
             self._pedestrian_pool = PedestrianPool(self._client, self.num_pedestrians)
             # self._vehicle_pool = VehiclePool(self._client, n_pedestrians)
             is_ready = self.ready()
 
+        t = self._player.get_transform()
+        self._starting_point = (t.location.x, t.location.y)
         state = np.zeros((self.im_height, self.im_width, self.frame_num))
 
         for i in range(self.frame_num):
@@ -107,9 +113,6 @@ class CarlaEnv(object):
             self._pedestrian_pool.tick()
             img = self._cameras['sem_img'].get()
             state[:, :, i] = img.squeeze()
-
-        t = self._player.get_transform()
-        self._starting_point = (t.location.x, t.location.y)
 
         return state.transpose((2, 0, 1))[None, :, :, :]
 
@@ -140,7 +143,7 @@ class CarlaEnv(object):
 
         if not self.continuous_action:
             if action == STRAIGHT:
-                self._player.apply_control(carla.VehicleControl(throttle=0.5, steer=0))
+                self._player.apply_control(carla.VehicleControl(throttle=1, steer=0))
             elif action == NOTHING:
                 self._player.apply_control(carla.VehicleControl(throttle=0, steer=0))
             elif action == BRAKE:
@@ -188,7 +191,8 @@ class CarlaEnv(object):
             x = transform.location.x
             y = transform.location.y
             theta = transform.rotation.yaw
-            info['dist_covered'] = math.sqrt((self._starting_point[0] - x) ** 2 + (self._starting_point[1] - y) ** 2)
+            info['dist_covered'] = min(math.sqrt(
+                (self._starting_point[0] - x) ** 2 + (self._starting_point[1] - y) ** 2) / self._path_length, 1)
 
             info['linear_speeds'].append(kmh)
             info['locs'].append((x, y))
@@ -232,12 +236,12 @@ class CarlaEnv(object):
     def _check_reward_and_termination(self, frames, info):
 
         done, reward = False, 0
-        info['col_with_ped'] = False
+        info['col_with_ped'] = 0
 
         if info['nearest_ped'] < 2.3 or (info['col_actor'] is not None and isinstance(info['col_actor'], carla.Walker)):
             reward = self._collision_reward
             done = True
-            info['col_with_ped'] = True
+            info['col_with_ped'] = 1
             return reward, done
 
         if (info['col_actor'] is not None) or info['lane_invasion']:
