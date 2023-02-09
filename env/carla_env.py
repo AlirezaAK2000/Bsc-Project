@@ -153,12 +153,12 @@ class CarlaEnv(object):
                 raise ValueError(msg)
 
         else:
-            if action[0] > self.throttle_max or action[0] < self.throttle_min:
-                raise ValueError("Throttle must be between 0 and 1")
-            if action[1] > self.brake_max or action[1] < self.brake_min:
-                raise ValueError("Brake must be between 0 and 1")
-
-            self._player.apply_control(carla.VehicleControl(throttle=action[0], brake=action[1]))
+            # action = np.clip(action, 0.01, 0.99)
+            # if action[0] > self.throttle_max or action[0] < self.throttle_min:
+            #     raise ValueError("Throttle must be between 0 and 1")
+            # if action[1] > self.brake_max or action[1] < self.brake_min:
+            #     raise ValueError("Brake must be between 0 and 1")
+            self._player.apply_control(carla.VehicleControl(throttle=float(action[0]), steer=0, brake=float(action[1])))
 
     def _extract_state_and_info(self, increment_tick=True):
 
@@ -272,12 +272,12 @@ class CarlaEnv(object):
         Add sensors to _actor_dict to be cleaned up.
         """
         self._cameras['sem_img'] = Camera(self._world, self._player, self.im_width, self.im_height,
-                                          90, 1.8, 0.0, 1, 0.0, 0.0, type='semantic_segmentation')
+                                          90, 1.8, 0.0, 1, 0.0, 0.0, type='semantic_segmentation', record=False)
         if self.record:
             record_save_path = f"{self._save_record_path}/{self._record_filename_base.format(self._episode_num)}"
             self._cameras['rgb_recorder'] = Camera(self._world, self._player, self.im_width, self.im_height,
                                                    90, -2, 0.0, 3, 0.0, 0.0, type='rgb',
-                                                   save_path=record_save_path)
+                                                   save_path=record_save_path, record=self.record)
 
         # collision sensor
         collison_sensor = self._blueprints.find("sensor.other.collision")

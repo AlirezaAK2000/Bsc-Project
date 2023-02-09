@@ -15,10 +15,6 @@ if __name__ == "__main__":
         env_conf = conf['carla']
         conf = conf['dqn']
 
-    screen_height = conf['screen_height']
-    screen_width = conf['screen_width']
-    frame_num = conf['frame_num']
-
     env_name = conf['env_name']
 
     run_name = f"{env_name}__{conf['exp_name']}_{int(time.time())}"
@@ -29,6 +25,9 @@ if __name__ == "__main__":
     )
 
     with CarlaEnv(env_conf) as env:
+        screen_height = env.im_height
+        screen_width = env.im_width
+        frame_num = env.frame_num
 
         agent = Agent(
             gamma=conf['gamma'], epsilon=conf['epsilon'], batch_size=conf['batch_size'], n_action=env.n_action,
@@ -36,7 +35,6 @@ if __name__ == "__main__":
             eps_dec=conf['eps_dec'],
             max_mem_size=conf['max_mem_size'], use_per=conf['use_per']
         )
-        scores, eps_history = [], []
         n_time_steps = conf['n_time_steps']
 
         n_games = 0
@@ -47,7 +45,6 @@ if __name__ == "__main__":
                 done = False
                 observation = env.reset()
                 speeds = []
-                dists = []
                 covered_dist = 0
                 col_with_ped = 0
                 while not done:
@@ -60,36 +57,20 @@ if __name__ == "__main__":
                     for _ in range(conf['n_step_update']):
                         agent.learn(n_step)
                     observation = observation_
-
-                    if done:
-                        scores.append(score)
-                        eps_history.append(agent.epsilon)
-                        avg_score = np.mean(scores[-100:])
-
-                        writer.add_scalar("charts/Episodic Return", score, n_step)
-                        writer.add_scalar("charts/Epsilon", agent.epsilon, n_step)
-                        writer.add_scalar("charts/Average Score Over 100 Previous Episodes", avg_score, n_step)
-
                     n_step += 1
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
-                    p, p_ = info['locs'][0], info['locs'][-1]
-                    dists.append(math.sqrt((p[0] - p_[0]) ** 2 + (p[1] - p_[1]) ** 2))
                     covered_dist = info['dist_covered']
                     col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
 
                     tepoch.update(1)
 
+                writer.add_scalar("charts/Episodic Return", score, n_step)
+                writer.add_scalar("charts/Epsilon", agent.epsilon, n_step)
                 writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
                 writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_games)
                 writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_games)
 
                 n_games += 1
 
-            if n_step % 100 == 0:
-                agent.save_models()
-
-            print('Step ', n_games, 'score %.2f' % score,
-                  'average score %.2f' % avg_score,
-                  'epsilon %.2f' % agent.epsilon)
-
-        x = [i + 1 for i in range(n_games)]
+                if n_step % 100 == 0:
+                    agent.save_models()

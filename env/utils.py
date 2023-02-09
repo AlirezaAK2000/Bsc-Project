@@ -1,4 +1,3 @@
-
 try:
     import queue
 except ImportError:
@@ -81,10 +80,12 @@ class Camera(object):
 
         with self.queue.mutex:
             self.queue.queue.clear()
-
-        if self.record:
-            video = np.concatenate(self.video_frames)
-            np.save(self.save_path ,video)
+        try:
+            if self.record:
+                video = np.concatenate(self.video_frames)
+                np.save(self.save_path, video)
+        except:
+            pass
 
 
 class VehiclePool(object):

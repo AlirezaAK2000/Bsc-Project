@@ -1,49 +1,59 @@
 {
-    "carla":{
-        
-        "SHOW_PREVIEW" : false ,
-        
-        "IM_WIDTH" : 84 , 
-        "IM_HEIGHT" : 84 , 
-        "FRAME_NUM" : 4 , 
+  "carla": {
+    "SHOW_PREVIEW": false,
+    "IM_WIDTH": 84,
+    "IM_HEIGHT": 84,
+    "FRAME_NUM": 4,
+    "EPISODE_LENGTH": 150,
+    "NUM_PEDESTRIANS": 500,
+    "V_MIN": 5,
+    "V_MAX": 20,
+    "PEDESTRIAN_CAMERA_RATIO_TH": 0.02,
+    "PED_COEF": -10,
+    "COLLISION_REWARD": -5,
+    "RECORD_EPISODES": true,
+    "N_EPISODE_RECORD": 10,
+    "SAVE_RECORD_PATH": "recordings/",
+    "VEHICLE_NAME": "vehicle.seat.leon",
+    "town": "Town02",
+    "port": 2000
+  },
+  "dqn": {
+    "learning_rate": 0.0001,
+    "gamma": 0.99,
+    "use_per": true,
+    "batch_size": 64,
+    "max_mem_size": 10000,
+    "epsilon": 1,
+    "eps_dec": 0.000396,
+    "eps_end": 0.01,
+    "n_time_steps": 10000,
+    "n_step_update": 5,
+    "exp_name": "dqn",
+    "log_dir": "runs/",
+    "env_name": "carla"
+  },
+  "ppo": {
+    "exp_name": "ppo",
+    "log_dir": "runs/",
 
-        "EPISODE_LENGTH" : 150 ,
-        "NUM_PEDESTRIANS" : 500 ,
-        "V_MIN" : 10 , 
-        "V_MAX" : 30 , 
-        "PEDESTRIAN_CAMERA_RATIO_TH" : 0.02 , 
-        "PED_COEF" : -10,
-        "COLLISION_REWARD" : -5,
+    "max_training_timesteps": 10000,
+    "update_timestep": 10,
 
-        "RECORD_EPISODES": true,
-        "N_EPISODE_RECORD": 10,
-        "SAVE_RECORD_PATH": "recordings/",
+    "has_continuous_action_space": false,
+    "action_std": 0.8,
+    "action_std_decay_rate": 0.05,
+    "min_action_std": 0.1,
+    "action_std_decay_freq": 2500,
 
-        "VEHICLE_NAME" : "vehicle.seat.leon",        
-        "town": "Town02",
-        "port": 2000
-    },
-    
-    "dqn": {
-        "learning_rate" : 0.0001 , 
-        "gamma" : 0.99 , 
-        
-        "use_per" : true,
-        "batch_size" : 64 ,
-        "max_mem_size" : 10000,
-        "screen_height" : 84,
-        "screen_width" : 84,
-        "frame_num" : 4,
-        
-        "epsilon" : 1 ,
-        "eps_dec" : 0.000396 ,
-        "eps_end" : 0.01 , 
-        
-        "n_time_steps" : 10000 ,
-        "n_step_update" : 5 , 
-        
-        "exp_name" : "dqn" , 
-        "log_dir" : "runs/" , 
-        "env_name" : "carla"
-    }
+    "save_model_freq": 100,
+
+    "eps_clip": 0.2,
+    "gamma": 0.99,
+    "lr_actor": 0.0003,
+    "lr_critic": 0.001,
+    "k_epochs": 40,
+    "ent_coe": 0.1
+
+  }
 }
