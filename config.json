@@ -52,7 +52,7 @@
     "gamma": 0.99,
     "lr_actor": 0.0003,
     "lr_critic": 0.001,
-    "k_epochs": 40,
+    "k_epochs": 15,
     "ent_coe": 0.1
 
   }

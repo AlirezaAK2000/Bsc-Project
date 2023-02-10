@@ -72,6 +72,8 @@ class CarlaEnv(object):
         self.brake_max = 1
         self.n_action = 3
         self.action_dim = 2
+        self._dist_covered = 0
+
 
     def _set_weather(self, weather_string):
         if weather_string == 'random':
@@ -103,6 +105,7 @@ class CarlaEnv(object):
             # self._vehicle_pool = VehiclePool(self._client, n_pedestrians)
             is_ready = self.ready()
 
+        self._dist_covered = 0
         t = self._player.get_transform()
         self._starting_point = (t.location.x, t.location.y)
         state = np.zeros((self.im_height, self.im_width, self.frame_num))
@@ -247,14 +250,17 @@ class CarlaEnv(object):
         if (info['col_actor'] is not None) or info['lane_invasion']:
             done = True
             return reward, done
+        if sum(info['linear_speeds']) > 0:
+            for i in range(frames.shape[-1]):
+                reward += self._pixel_reward(frames[:, :, i]) / frames.shape[-1]
 
-        for i in range(frames.shape[-1]):
-            reward += self._pixel_reward(frames[:, :, i]) / frames.shape[-1]
-
+        # if reward == 0:
+        #     reward += sum(map(self._speed_reward, info['linear_speeds'])) / len(info['linear_speeds'])
+        # else:
+        #     reward += sum(map(lambda x: -np.exp(x / 100) + 1, info['linear_speeds'])) / len(info['linear_speeds'])
         if reward == 0:
-            reward += sum(map(self._speed_reward, info['linear_speeds'])) / len(info['linear_speeds'])
-        else:
-            reward += sum(map(lambda x: -np.exp(x / 100) + 1, info['linear_speeds'])) / len(info['linear_speeds'])
+            reward = 10 * (info['dist_covered'] - self._dist_covered)
+        self._dist_covered = info['dist_covered']
 
         if self._tick / self.frame_num >= self.episode_length:
             done = True

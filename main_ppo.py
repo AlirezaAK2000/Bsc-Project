@@ -97,10 +97,10 @@ def train():
                 col_with_ped = 0
 
                 while not done:
-                    tepoch.set_description(f"Step: {time_step}")
                     # select action with policy
                     action = ppo_agent.select_action(state)
                     state, reward, done, info = env.step(action)
+                    tepoch.set_description(f"Step: {time_step}, reward: {reward}")
 
                     # saving reward and is_terminals
                     ppo_agent.buffer.rewards.append(reward)
