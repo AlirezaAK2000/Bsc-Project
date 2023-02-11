@@ -3,7 +3,7 @@ import time
 import json
 
 if __name__ == '__main__':
-    episodes = 3
+    episodes = 100
     with open("config.json", 'r') as f:
 
         conf = json.load(f)

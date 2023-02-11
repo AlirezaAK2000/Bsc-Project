@@ -63,8 +63,9 @@ class CarlaEnv(object):
 
         self._actor_dict = collections.defaultdict(list)
         self._cameras = dict()
-        self._routes = [0, 6, 8, 14, 16, 18, 19, 21, 24, 29]
-        self._routes_len = [160.50, 155.09, 181, 140, 155, 176, 135, 176, 176, 165]
+        self._routes = [0, 6, 8, 18, 24, 34, 42, 47, 52, 58]
+
+        self._routes_len = [160.50, 155.09, 181, 176, 176, 182.81, 171.79, 135.38, 135.99, 193.20]
 
         self.throttle_min = 0
         self.throttle_max = 1
@@ -241,15 +242,18 @@ class CarlaEnv(object):
         done, reward = False, 0
         info['col_with_ped'] = 0
 
+
+
+        if (info['col_actor'] is not None) or info['lane_invasion']:
+            done = True
+            return reward, done
+
         if info['nearest_ped'] < 2.3 or (info['col_actor'] is not None and isinstance(info['col_actor'], carla.Walker)):
             reward = self._collision_reward
             done = True
             info['col_with_ped'] = 1
             return reward, done
 
-        if (info['col_actor'] is not None) or info['lane_invasion']:
-            done = True
-            return reward, done
         if sum(info['linear_speeds']) > 0:
             for i in range(frames.shape[-1]):
                 reward += self._pixel_reward(frames[:, :, i]) / frames.shape[-1]
@@ -258,6 +262,7 @@ class CarlaEnv(object):
         #     reward += sum(map(self._speed_reward, info['linear_speeds'])) / len(info['linear_speeds'])
         # else:
         #     reward += sum(map(lambda x: -np.exp(x / 100) + 1, info['linear_speeds'])) / len(info['linear_speeds'])
+
         if reward == 0:
             reward = 10 * (info['dist_covered'] - self._dist_covered)
         self._dist_covered = info['dist_covered']
