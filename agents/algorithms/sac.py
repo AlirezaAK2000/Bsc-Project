@@ -10,15 +10,15 @@ from agents.common.networks import (ActorNetworkAtari,
 
 
 class Agent:
-    def __init__(self, alpha=0.0003, beta=0.0003, input_dims=[8],
-                 env=None, gamma=0.99, n_actions=2, max_size=100000, tau=0.005, batch_size=256, reward_scale=2):
+    def __init__(self, action_space_max, alpha=0.0003, beta=0.0003, input_dims=[8],
+                 gamma=0.99, n_actions=2, max_size=100000, tau=0.005, batch_size=256, reward_scale=2):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
         self.n_actions = n_actions
         self.actor = ActorNetworkAtari(alpha, n_actions=n_actions,
-                                       name='actor', max_action=env.action_space.high)
+                                       name='actor', max_action=action_space_max)
         self.critic_1 = CriticNetworkAtari(beta, n_actions=n_actions,
                                            name='critic_1')
         self.critic_2 = CriticNetworkAtari(beta, n_actions=n_actions,
@@ -129,4 +129,3 @@ class Agent:
 
         self.update_network_parameters()
 
-        print("############ Policy Updated ############")

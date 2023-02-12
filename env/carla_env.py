@@ -75,7 +75,6 @@ class CarlaEnv(object):
         self.action_dim = 2
         self._dist_covered = 0
 
-
     def _set_weather(self, weather_string):
         if weather_string == 'random':
             weather = np.random.choice(WEATHERS)
@@ -222,11 +221,9 @@ class CarlaEnv(object):
         return state.transpose((2, 0, 1))[None, :, :, :], reward, done, info
 
     def _speed_reward(self, v):
-
-        if v <= self.v_max:
-            reward = np.exp((v - self.v_min) / 100) - 1
-        else:
-            reward = -np.exp(v / 100)
+        reward = 0
+        if v > self.v_max:
+            reward = (self.v_max - v) / 100
         return reward
 
     def _pixel_reward(self, frame):
@@ -242,16 +239,14 @@ class CarlaEnv(object):
         done, reward = False, 0
         info['col_with_ped'] = 0
 
-
-
-        if (info['col_actor'] is not None) or info['lane_invasion']:
-            done = True
-            return reward, done
-
         if info['nearest_ped'] < 2.3 or (info['col_actor'] is not None and isinstance(info['col_actor'], carla.Walker)):
             reward = self._collision_reward
             done = True
             info['col_with_ped'] = 1
+            return reward, done
+
+        if (info['col_actor'] is not None) or info['lane_invasion']:
+            done = True
             return reward, done
 
         if sum(info['linear_speeds']) > 0:
@@ -286,7 +281,7 @@ class CarlaEnv(object):
                                           90, 1.8, 0.0, 1, 0.0, 0.0, type='semantic_segmentation', record=False)
         if self.record:
             record_save_path = f"{self._save_record_path}/{self._record_filename_base.format(self._episode_num)}"
-            self._cameras['rgb_recorder'] = Camera(self._world, self._player, self.im_width, self.im_height,
+            self._cameras['rgb_recorder'] = Camera(self._world, self._player, 400, 400,
                                                    90, -2, 0.0, 3, 0.0, 0.0, type='rgb',
                                                    save_path=record_save_path, record=self.record)
 

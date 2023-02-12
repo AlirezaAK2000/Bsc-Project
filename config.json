@@ -5,13 +5,13 @@
     "IM_HEIGHT": 84,
     "FRAME_NUM": 4,
     "EPISODE_LENGTH": 150,
-    "NUM_PEDESTRIANS": 300,
+    "NUM_PEDESTRIANS": 500,
     "V_MIN": 5,
-    "V_MAX": 20,
+    "V_MAX": 30,
     "PEDESTRIAN_CAMERA_RATIO_TH": 0.02,
     "PED_COEF": -10,
     "COLLISION_REWARD": -5,
-    "RECORD_EPISODES": false,
+    "RECORD_EPISODES": true,
     "N_EPISODE_RECORD": 10,
     "SAVE_RECORD_PATH": "recordings/",
     "VEHICLE_NAME": "vehicle.seat.leon",
@@ -53,7 +53,21 @@
     "lr_actor": 0.0003,
     "lr_critic": 0.001,
     "k_epochs": 15,
-    "ent_coe": 0.1
+    "ent_coe": 0.5
+  },
 
+  "sac": {
+    "n_steps": 10000,
+    "num_updates": 10,
+    "alpha": 0.0003,
+    "beta": 0.0003,
+    "gamma": 0.99,
+    "memory_size": 10000,
+    "tau": 0.001,
+    "batch_size": 256,
+    "reward_scale": 2,
+    "exp_name": "sac",
+    "log_dir": "runs/",
+    "env_name": "carla"
   }
 }

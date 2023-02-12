@@ -1,66 +1,82 @@
-import gym
 import numpy as np
 from agents.algorithms.sac import Agent
-from agents.common.utils import plot_learning_curve
 from torch.utils.tensorboard import SummaryWriter
-from agents.common.utils import step, reward_memory, reset
-import matplotlib.pyplot as plt
+from env.carla_env import CarlaEnv
+import json
+import time
+from tqdm import tqdm
 
 if __name__ == '__main__':
-    env_name = 'CarRacing-v2'
-    n_games = 500
-    screen_height = 72
-    screen_width = 84
-    frame_num = 4
-    num_updates = 20
 
-    env = gym.make(env_name, continuous=True)
-    agent = Agent(input_dims=(frame_num, screen_height, screen_width), env=env,
-                  n_actions=env.action_space.shape[0])
-    # uncomment this line and do a mkdir tmp && mkdir video if you want to
-    # record video of the agent playing the game.
-    # env = wrappers.Monitor(env, 'tmp/video', video_callable=lambda episode_id: True, force=True)
-    filename = f'{env_name}-sac.png'
+    with open("config.json", 'r') as f:
 
-    figure_file = 'plots/' + filename
+        conf = json.load(f)
+        env_conf = conf['carla']
+        conf = conf['sac']
 
-    best_score = env.reward_range[0]
-    score_history = []
-    load_checkpoint = False
+    env_name = conf['env_name']
 
-    if load_checkpoint:
-        agent.load_models()
-        env.render(mode='human')
+    run_name = f"{env_name}__{conf['exp_name']}_{int(time.time())}"
+    writer = SummaryWriter(f"{conf['log_dir']}/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in conf.items()])),
+    )
 
+    with CarlaEnv(env_conf, continuous_action=True) as env:
+        n_steps = conf['n_steps']
+        screen_height = env.im_height
+        screen_width = env.im_width
+        frame_num = env.frame_num
+        num_updates = conf['num_updates']
 
+        agent = Agent(action_space_max=[env.throttle_max, env.brake_max], alpha=conf['alpha'], beta=conf['beta'],
+                      input_dims=(frame_num, screen_height, screen_width),
+                      gamma=conf['gamma'], n_actions=env.action_dim, max_size=conf['memory_size'], tau=conf['tau'],
+                      batch_size=conf['batch_size'],
+                      reward_scale=conf['reward_scale'])
 
-    for i in range(n_games):
-        observation = reset(env, [0, 1, 0.8], screen_height, screen_width, prog_shower, frame_num)
-        done = False
-        score = 0
-        rew_mem = reward_memory()
-        while not done:
-            action = agent.choose_action(observation)
-            observation_, done, reward = step(env, action, screen_height, screen_width,
-                                              prog_shower, frame_num, rew_mem)
-            score += reward
-            agent.remember(observation, action, reward, observation_, done)
+        load_checkpoint = False
 
-            observation = observation_
+        if load_checkpoint:
+            agent.load_models()
 
-        score_history.append(score)
-        avg_score = np.mean(score_history[-100:])
+        time_step = 0
+        n_games = 0
+        with tqdm(list(range(n_steps))) as tepoch:
 
-        for _ in range(num_updates):
-            agent.learn()
+            while time_step < n_steps:
+                observation = env.reset()
+                done = False
+                score = 0
+                speeds = []
+                covered_dist = 0
+                col_with_ped = 0
+                while not done:
+                    tepoch.set_description(f"Step: {time_step} score: {score}")
 
-        if avg_score > best_score:
-            best_score = avg_score
-            if not load_checkpoint:
-                agent.save_models()
+                    action = agent.choose_action(observation)
+                    observation_, reward, done, info = env.step(action)
+                    score += reward
+                    agent.remember(observation, action, reward, observation_, done)
 
-        print('episode ', i, 'score %.1f' % score, 'avg_score %.1f' % avg_score)
+                    observation = observation_
+                    if time_step % 20 == 0:
+                        for _ in range(num_updates):
+                            agent.learn()
 
-    if not load_checkpoint:
-        x = [i + 1 for i in range(n_games)]
-        plot_learning_curve(x, score_history, figure_file)
+                    speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
+                    covered_dist = info['dist_covered']
+                    col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
+                    time_step += 1
+                    tepoch.update(1)
+
+                writer.add_scalar("charts/Episodic Return", score, time_step)
+                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
+                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_games)
+                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_games)
+                n_games += 1
+
+                if time_step % 100 == 0:
+                    if not load_checkpoint:
+                        agent.save_models()

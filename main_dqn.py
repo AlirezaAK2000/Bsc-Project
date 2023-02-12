@@ -5,7 +5,6 @@ from tqdm import tqdm
 from env.carla_env import CarlaEnv
 import json
 import numpy as np
-import math
 
 if __name__ == "__main__":
 
