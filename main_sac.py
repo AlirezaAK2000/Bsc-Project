@@ -1,82 +1,99 @@
 import numpy as np
-from agents.algorithms.sac import Agent
-from torch.utils.tensorboard import SummaryWriter
+import torch
+from agents.algorithms.sac import ReplayBuffer
+import random
+from agents.algorithms.sac import SAC
 from env.carla_env import CarlaEnv
 import json
+from torch.utils.tensorboard import SummaryWriter
 import time
 from tqdm import tqdm
 
-if __name__ == '__main__':
 
+def save(conf, save_name, model, ep=None):
+    import os
+    save_dir = './tmp/sac'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    if not ep == None:
+        torch.save(model.state_dict(), save_dir + conf['exp_name'] + save_name + str(ep) + ".pth")
+    else:
+        torch.save(model.state_dict(), save_dir + conf['exp_name'] + save_name + ".pth")
+
+
+def get_config():
     with open("config.json", 'r') as f:
-
         conf = json.load(f)
-        env_conf = conf['carla']
-        conf = conf['sac']
 
-    env_name = conf['env_name']
+    return conf
 
+
+def train(conf):
+    env_conf = conf['carla']
+    conf = conf['sac']
+    np.random.seed(conf['seed'])
+    random.seed(conf['seed'])
+    torch.manual_seed(conf['seed'])
+    env_name = conf['env']
     run_name = f"{env_name}__{conf['exp_name']}_{int(time.time())}"
     writer = SummaryWriter(f"{conf['log_dir']}/{run_name}")
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in conf.items()])),
     )
+    with CarlaEnv(env_conf) as env:
 
-    with CarlaEnv(env_conf, continuous_action=True) as env:
-        n_steps = conf['n_steps']
-        screen_height = env.im_height
-        screen_width = env.im_width
-        frame_num = env.frame_num
-        num_updates = conf['num_updates']
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        agent = Agent(action_space_max=[env.throttle_max, env.brake_max], alpha=conf['alpha'], beta=conf['beta'],
-                      input_dims=(frame_num, screen_height, screen_width),
-                      gamma=conf['gamma'], n_actions=env.action_dim, max_size=conf['memory_size'], tau=conf['tau'],
-                      batch_size=conf['batch_size'],
-                      reward_scale=conf['reward_scale'])
+        agent = SAC(state_size=(env.frame_num, env.im_height, env.im_width),
+                    action_size=env.action_dim,
+                    device=device,
+                    gamma=conf['gamma'],
+                    tau=conf['tau'],
+                    learning_rate=conf['learning_rate'])
 
-        load_checkpoint = False
+        buffer = ReplayBuffer(buffer_size=conf['buffer_size'], batch_size=conf['batch_size'],
+                              num_classes=env.num_classes, device=device)
 
-        if load_checkpoint:
-            agent.load_models()
-
-        time_step = 0
+        n_step = 0
         n_games = 0
-        with tqdm(list(range(n_steps))) as tepoch:
+        with tqdm(list(range(conf['n_steps']))) as tepoch:
 
-            while time_step < n_steps:
-                observation = env.reset()
-                done = False
+            while n_step < conf['n_steps']:
+
+                state = env.reset()
                 score = 0
+                done = False
                 speeds = []
                 covered_dist = 0
                 col_with_ped = 0
                 while not done:
-                    tepoch.set_description(f"Step: {time_step} score: {score}")
 
-                    action = agent.choose_action(observation)
-                    observation_, reward, done, info = env.step(action)
+                    action = agent.get_action(state)
+                    next_state, reward, done, info = env.step(action)
+                    tepoch.set_description(f"Step: {n_step} reward: {reward}")
+
+                    buffer.add(state, action, reward, next_state, done)
+                    if len(buffer) >= conf['batch_size']:
+                        agent.learn(buffer.sample())
+                    state = next_state
                     score += reward
-                    agent.remember(observation, action, reward, observation_, done)
-
-                    observation = observation_
-                    if time_step % 20 == 0:
-                        for _ in range(num_updates):
-                            agent.learn()
-
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
                     covered_dist = info['dist_covered']
                     col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
-                    time_step += 1
-                    tepoch.update(1)
 
-                writer.add_scalar("charts/Episodic Return", score, time_step)
-                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
-                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_games)
-                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_games)
+                    tepoch.update(1)
+                    if (n_step + 1) % conf['save_every'] == 0:
+                        save(conf, save_name="SAC_discrete", model=agent.actor_local, ep=0)
+                    n_step += 1
+
+                writer.add_scalar("charts/Episodic Return", score, n_step)
+                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_step)
+                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_step)
+                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_step)
                 n_games += 1
 
-                if time_step % 100 == 0:
-                    if not load_checkpoint:
-                        agent.save_models()
+
+if __name__ == "__main__":
+    config = get_config()
+    train(config)

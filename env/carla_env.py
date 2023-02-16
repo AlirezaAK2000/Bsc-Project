@@ -35,7 +35,9 @@ class CarlaEnv(object):
         self.n_episode_record = conf['N_EPISODE_RECORD']
         self._save_record_path = conf['SAVE_RECORD_PATH']
         self._collision_reward = conf['COLLISION_REWARD']
+        self._reward_scale = conf['reward_scale']
         self.record = False
+        self.num_classes = len(main_classes)
 
         exp_folder = f"{int(time.time())}_exp"
         self._save_record_path = os.path.join(self._save_record_path, exp_folder)
@@ -218,7 +220,7 @@ class CarlaEnv(object):
         self._perform_action(action)
         state, info = self._extract_state_and_info(increment_tick)
         reward, done = self._check_reward_and_termination(state, info)
-        return state.transpose((2, 0, 1))[None, :, :, :], reward, done, info
+        return state.transpose((2, 0, 1))[None, :, :, :], reward * self._reward_scale, done, info
 
     def _speed_reward(self, v):
         reward = 0

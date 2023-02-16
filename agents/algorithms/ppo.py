@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from agents.common.networks import ActorCriticPPOAtari, ActorCriticPPO
+from agents.common.networks import ActorCriticPPOAtari
 
 ################################## set device ##################################
 print("============================================================================================")
@@ -37,7 +37,8 @@ class RolloutBuffer:
 
 class PPO:
     def __init__(self, action_dim, lr_actor, lr_critic, gamma,
-                 K_epochs, eps_clip, has_continuous_action_space, ent_coe, action_std_init=0.6, num_frames=4):
+                 K_epochs, eps_clip, has_continuous_action_space, ent_coe, num_classes, action_std_init=0.6,
+                 num_frames=4):
 
         self.has_continuous_action_space = has_continuous_action_space
 
@@ -48,7 +49,7 @@ class PPO:
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
-
+        self.num_classes = num_classes
         self.buffer = RolloutBuffer()
 
         self.policy = ActorCriticPPOAtari(action_dim, has_continuous_action_space, action_std_init, device,
@@ -93,7 +94,7 @@ class PPO:
         print("--------------------------------------------------------------------------------------------")
 
     def select_action(self, state):
-
+        state = state / self.num_classes
         if self.has_continuous_action_space:
             with torch.no_grad():
                 state = torch.tensor(state, dtype=torch.float, device=device)

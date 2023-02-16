@@ -32,7 +32,7 @@ if __name__ == "__main__":
             gamma=conf['gamma'], epsilon=conf['epsilon'], batch_size=conf['batch_size'], n_action=env.n_action,
             eps_end=conf['eps_end'], input_dims=(frame_num, screen_height, screen_width), lr=conf['learning_rate'],
             eps_dec=conf['eps_dec'],
-            max_mem_size=conf['max_mem_size'], use_per=conf['use_per']
+            max_mem_size=conf['max_mem_size'], use_per=conf['use_per'], num_classes=env.num_classes
         )
         n_time_steps = conf['n_time_steps']
 
@@ -56,7 +56,6 @@ if __name__ == "__main__":
                     for _ in range(conf['n_step_update']):
                         agent.learn(n_step)
                     observation = observation_
-                    n_step += 1
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
                     covered_dist = info['dist_covered']
                     col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
@@ -65,11 +64,9 @@ if __name__ == "__main__":
 
                 writer.add_scalar("charts/Episodic Return", score, n_step)
                 writer.add_scalar("charts/Epsilon", agent.epsilon, n_step)
-                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_games)
-                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_games)
-                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_games)
+                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), n_step)
+                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_step)
+                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_step)
 
                 n_games += 1
-
-                if n_step % 100 == 0:
-                    agent.save_models()
+    agent.save_models()

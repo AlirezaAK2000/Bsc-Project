@@ -8,6 +8,7 @@ from env.carla_env import CarlaEnv
 from tqdm import tqdm
 import numpy as np
 
+
 def train():
     with open("config.json", 'r') as f:
 
@@ -73,7 +74,7 @@ def train():
 
         # initialize a PPO agent
         ppo_agent = PPO(action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space,
-                        conf["ent_coe"], action_std)
+                        conf["ent_coe"],env.num_classes , action_std_init=action_std)
 
         # track total training time
         start_time = datetime.now().replace(microsecond=0)
@@ -103,7 +104,7 @@ def train():
                     tepoch.set_description(f"Step: {time_step}, reward: {reward}")
 
                     # saving reward and is_terminals
-                    ppo_agent.buffer.rewards.append(reward)
+                    ppo_agent.buffer.rewards.append(reward * conf['reward_scale'])
                     ppo_agent.buffer.is_terminals.append(done)
 
                     current_ep_reward += reward
@@ -121,7 +122,7 @@ def train():
                     col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
 
                     # save model weights
-                    if time_step % save_model_freq == 0:
+                    if (time_step + 1) % save_model_freq == 0:
                         print("model saved")
                         ppo_agent.save(checkpoint_path)
                     time_step += 1
@@ -129,9 +130,9 @@ def train():
                     # break; if the episode is over
                 i_episode += 1
                 writer.add_scalar("charts/Episodic Return", current_ep_reward, time_step)
-                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), i_episode)
-                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, i_episode)
-                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, i_episode)
+                writer.add_scalar("charts/Average Linear Velocity per Episode(km/h)", np.mean(speeds), time_step)
+                writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, time_step)
+                writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, time_step)
 
         # print total training time
         print("============================================================================================")

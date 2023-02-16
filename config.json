@@ -13,6 +13,7 @@
     "COLLISION_REWARD": -5,
     "RECORD_EPISODES": true,
     "N_EPISODE_RECORD": 10,
+    "reward_scale": 10,
     "SAVE_RECORD_PATH": "recordings/",
     "VEHICLE_NAME": "vehicle.seat.leon",
     "town": "Town02",
@@ -22,7 +23,7 @@
     "learning_rate": 0.0001,
     "gamma": 0.99,
     "use_per": true,
-    "batch_size": 64,
+    "batch_size": 128,
     "max_mem_size": 10000,
     "epsilon": 1,
     "eps_dec": 0.000396,
@@ -53,21 +54,22 @@
     "lr_actor": 0.0003,
     "lr_critic": 0.001,
     "k_epochs": 15,
-    "ent_coe": 0.5
+    "ent_coe": 0.5,
+    "reward_scale": 0.1
   },
 
   "sac": {
     "n_steps": 10000,
     "num_updates": 10,
-    "alpha": 0.0003,
-    "beta": 0.0003,
+    "learning_rate": 0.0003,
     "gamma": 0.99,
-    "memory_size": 10000,
-    "tau": 0.001,
-    "batch_size": 256,
-    "reward_scale": 2,
-    "exp_name": "sac",
+    "buffer_size": 10000,
+    "tau": 0.1,
+    "batch_size": 128,
+    "exp_name": "sac_tau",
     "log_dir": "runs/",
-    "env_name": "carla"
+    "env": "carla",
+    "seed": 1,
+    "save_every": 1000
   }
 }
