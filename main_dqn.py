@@ -36,7 +36,6 @@ if __name__ == "__main__":
         )
         n_time_steps = conf['n_time_steps']
 
-        n_games = 0
         n_step = 0
         with tqdm(list(range(n_time_steps))) as tepoch:
             while n_step < n_time_steps:
@@ -48,9 +47,9 @@ if __name__ == "__main__":
                 col_with_ped = 0
                 while not done:
 
-                    tepoch.set_description(f"Step: {n_step}")
                     action = agent.choose_action(observation)
                     observation_, reward, done, info = env.step(action)
+                    tepoch.set_description(f"Step: {n_step}, reward: {reward}")
                     score += reward
                     agent.store_transition(observation, action, reward, observation_, done)
                     for _ in range(conf['n_step_update']):
@@ -59,7 +58,7 @@ if __name__ == "__main__":
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))
                     covered_dist = info['dist_covered']
                     col_with_ped = 1 if info['col_with_ped'] == 1 else col_with_ped
-
+                    n_step += 1
                     tepoch.update(1)
 
                 writer.add_scalar("charts/Episodic Return", score, n_step)
@@ -68,5 +67,4 @@ if __name__ == "__main__":
                 writer.add_scalar("charts/Percentage of Covered Distance per Episode", covered_dist, n_step)
                 writer.add_scalar("charts/Episode Terminated by Collision", col_with_ped, n_step)
 
-                n_games += 1
     agent.save_models()

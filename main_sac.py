@@ -75,7 +75,8 @@ def train(conf):
 
                     buffer.add(state, action, reward, next_state, done)
                     if len(buffer) >= conf['batch_size']:
-                        agent.learn(buffer.sample())
+                        for _ in range(conf['num_updates']):
+                            agent.learn(buffer.sample())
                     state = next_state
                     score += reward
                     speeds.append(sum(info['linear_speeds']) / len(info['linear_speeds']))

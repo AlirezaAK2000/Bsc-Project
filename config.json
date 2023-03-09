@@ -12,7 +12,7 @@
     "PED_COEF": -10,
     "COLLISION_REWARD": -5,
     "RECORD_EPISODES": true,
-    "N_EPISODE_RECORD": 10,
+    "N_EPISODE_RECORD": 20,
     "reward_scale": 10,
     "SAVE_RECORD_PATH": "recordings/",
     "VEHICLE_NAME": "vehicle.seat.leon",
@@ -26,10 +26,10 @@
     "batch_size": 128,
     "max_mem_size": 10000,
     "epsilon": 1,
-    "eps_dec": 0.000396,
+    "eps_dec": 0.00099,
     "eps_end": 0.01,
-    "n_time_steps": 10000,
-    "n_step_update": 5,
+    "n_time_steps": 20000,
+    "n_step_update": 1,
     "exp_name": "dqn",
     "log_dir": "runs/",
     "env_name": "carla"
@@ -38,7 +38,7 @@
     "exp_name": "ppo",
     "log_dir": "runs/",
 
-    "max_training_timesteps": 10000,
+    "max_training_timesteps": 20000,
     "update_timestep": 10,
 
     "has_continuous_action_space": false,
@@ -55,18 +55,18 @@
     "lr_critic": 0.001,
     "k_epochs": 15,
     "ent_coe": 0.5,
-    "reward_scale": 0.1
+    "reward_scale": 1
   },
 
   "sac": {
-    "n_steps": 10000,
-    "num_updates": 10,
+    "n_steps": 20000,
+    "num_updates": 1,
     "learning_rate": 0.0003,
     "gamma": 0.99,
     "buffer_size": 10000,
     "tau": 0.1,
     "batch_size": 128,
-    "exp_name": "sac_tau",
+    "exp_name": "sac",
     "log_dir": "runs/",
     "env": "carla",
     "seed": 1,

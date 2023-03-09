@@ -5,6 +5,7 @@ from agents.common.networks import DeepQNetworkAtari
 from agents.common.utils import SumTree
 import random
 
+
 class ReplayBuffer:
     def __init__(self, max_size, input_shape, n_actions, num_classes):
         self.mem_size = max_size
@@ -121,10 +122,10 @@ class PrioritizedReplayBuffer:
         weights = weights / weights.max()
 
         batch = (
-            self.state_memory[sample_idxs]/ self.num_classes,
+            self.state_memory[sample_idxs] / self.num_classes,
             self.action_memory[sample_idxs],
             self.reward_memory[sample_idxs],
-            self.new_state_memory[sample_idxs]/ self.num_classes,
+            self.new_state_memory[sample_idxs] / self.num_classes,
             self.terminal_memory[sample_idxs]
         )
         return batch, weights, tree_idxs
@@ -164,7 +165,6 @@ class Agent:
         self.Q_eval = DeepQNetworkAtari(n_action=n_action).to(self.device)
 
         self.target_eval = DeepQNetworkAtari(n_action=n_action).to(self.device)
-
 
         self.target_eval.load_state_dict(self.Q_eval.state_dict())
         self.target_eval.eval()
