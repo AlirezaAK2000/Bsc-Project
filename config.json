@@ -11,7 +11,7 @@
     "PEDESTRIAN_CAMERA_RATIO_TH": 0.02,
     "PED_COEF": -10,
     "COLLISION_REWARD": -5,
-    "RECORD_EPISODES": true,
+    "RECORD_EPISODES": false,
     "N_EPISODE_RECORD": 20,
     "reward_scale": 10,
     "SAVE_RECORD_PATH": "recordings/",
@@ -71,5 +71,30 @@
     "env": "carla",
     "seed": 1,
     "save_every": 1000
+  },
+  "carla_test": {
+    "SHOW_PREVIEW": false,
+    "IM_WIDTH": 84,
+    "IM_HEIGHT": 84,
+    "FRAME_NUM": 4,
+    "EPISODE_LENGTH": 150,
+    "NUM_PEDESTRIANS": 500,
+    "V_MIN": 5,
+    "V_MAX": 30,
+    "PEDESTRIAN_CAMERA_RATIO_TH": 0.02,
+    "PED_COEF": -10,
+    "COLLISION_REWARD": -5,
+    "RECORD_EPISODES": false,
+    "N_EPISODE_RECORD": 1,
+    "reward_scale": 10,
+    "SAVE_RECORD_PATH": "recordings_test/",
+    "VEHICLE_NAME": "vehicle.seat.leon",
+    "town": "Town02",
+    "port": 2000
+  },
+  "test": {
+    "agent": "sac",
+    "log_dir": "runs/"
+
   }
 }

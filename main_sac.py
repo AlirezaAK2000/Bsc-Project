@@ -46,7 +46,7 @@ def train(conf):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         agent = SAC(state_size=(env.frame_num, env.im_height, env.im_width),
-                    action_size=env.action_dim,
+                    action_size=env.n_action,
                     device=device,
                     gamma=conf['gamma'],
                     tau=conf['tau'],

@@ -17,7 +17,7 @@ BRAKE = 2
 
 class CarlaEnv(object):
 
-    def __init__(self, conf, continuous_action=False):
+    def __init__(self, conf, continuous_action=False, test=False):
 
         self.SHOW_CAM = conf['SHOW_PREVIEW']
         self.im_width = conf['IM_WIDTH']
@@ -38,6 +38,7 @@ class CarlaEnv(object):
         self._reward_scale = conf['reward_scale']
         self.record = False
         self.num_classes = len(main_classes)
+        self.test = test
 
         exp_folder = f"{int(time.time())}_exp"
         self._save_record_path = os.path.join(self._save_record_path, exp_folder)
@@ -69,6 +70,14 @@ class CarlaEnv(object):
 
         self._routes_len = [160.50, 155.09, 181, 176, 176, 182.81, 171.79, 135.38, 135.99, 193.20]
 
+        def _iterate_routes():
+            i = 0
+            while True:
+                i = (i + 1) % len(self._routes)
+                yield i
+
+        self._routes_iterator = _iterate_routes()
+
         self.throttle_min = 0
         self.throttle_max = 1
         self.brake_min = 0
@@ -92,14 +101,13 @@ class CarlaEnv(object):
         self.record = self._episode_num % self.n_episode_record == 0 and self._record_init
         self._starting_point = (0, 0)
         self._path_length = -1
-
+        idx = random.randint(0, len(self._routes) - 1) if not self.test else next(self._routes_iterator)
+        self._path_length = self._routes_len[idx]
         while not is_ready:
             np.random.seed(seed)
             self._clean_up()
             # self._spawn_player(random.choice(self._world.get_map().get_spawn_points()))
-            idx = random.randint(0, len(self._routes) - 1)
             self._spawn_player(self._world.get_map().get_spawn_points()[self._routes[idx]])
-            self._path_length = self._routes_len[idx]
             # self._spawn_player(self._world.get_map().get_spawn_points()[29])
             self._setup_sensors()
             # self._set_weather(weather)

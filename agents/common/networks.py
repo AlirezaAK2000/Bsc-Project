@@ -75,8 +75,9 @@ class ActorCriticPPOAtari(nn.Module):
             print("WARNING : Calling ActorCriticPPO::set_action_std() on discrete action space policy")
             print("--------------------------------------------------------------------------------------------")
 
-    def forward(self):
-        raise NotImplementedError
+    def forward(self, state):
+
+        return self.actor(state)
 
     def act(self, state):
 
