@@ -3,10 +3,3 @@ This repo is for the implementations and codes of my bachelor thesis. The topic 
 
 ![An overview of architecture.](imgs/proposal.jpg)
 
-### Checklist
-
-- [ ] Detailed readme
-- [ ] Control and Planning module 
-- [ ] Perception module
-- [ ] Slides
-- [ ] Final Report
